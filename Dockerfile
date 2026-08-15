@@ -34,4 +34,4 @@ COPY --from=builder /app/index.html ./index.html
 ENV NODE_ENV=production
 EXPOSE 3000
 
-CMD ["sh", "-c", "if [ \"$PROCESS_ROLE\" = \"worker\" ]; then exec node dist/worker.cjs; else exec node dist/server.cjs; fi"]
+CMD ["sh", "-c", "case \"$PROCESS_ROLE\" in worker) exec node dist/worker.cjs ;; bootstrap) exec node dist/bootstrap-initial-owner.cjs ;; migrate) exec node dist/migrate.cjs ;; *) exec node dist/server.cjs ;; esac"]
