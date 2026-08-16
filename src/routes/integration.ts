@@ -70,6 +70,17 @@ export function createIntegrationRouter() {
     } catch (error) { next(error); }
   });
 
+  router.get('/public/passports/:id/badge', async (req, res, next) => {
+    try {
+      const row = await db.select().from(passports).where(eq(passports.id, req.params.id)).then(rows => rows[0]);
+      if (!row) return res.status(404).type('html').send('<!doctype html><p>SPR Passport not found.</p>');
+      const evidenceCount = parseJson(row.evidence).length;
+      const state = evidenceCount > 0 ? 'Evidence observed' : 'Evidence pending';
+      const score = row.overallScore;
+      res.type('html').send(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;background:transparent;font-family:Inter,system-ui,sans-serif}.badge{display:inline-flex;align-items:center;gap:10px;padding:10px 14px;border:1px solid rgba(212,175,55,.45);border-radius:12px;background:#0A1628;color:#fff;text-decoration:none;box-shadow:0 0 24px rgba(212,175,55,.12)}.mark{width:28px;height:28px;border-radius:50%;border:1px solid #D4AF37;display:grid;place-items:center;color:#D4AF37;font-weight:800;font-size:11px}.name{font-weight:700;font-size:13px}.meta{font-size:11px;color:#cbd5e1}.score{margin-left:auto;color:#D4AF37;font-weight:800}</style></head><body><a class="badge" target="_blank" rel="noopener noreferrer" href="/api/v1/public/passports/${encodeURIComponent(row.id)}"><span class="mark">SPR</span><span><span class="name">${escapeHtml(row.name)}</span><br><span class="meta">${escapeHtml(state)}</span></span><span class="score">${score}/100</span></a></body></html>`);
+    } catch (error) { next(error); }
+  });
+
   router.use(integrationAuth);
 
   router.get('/software/:id', async (req, res, next) => {
@@ -172,4 +183,8 @@ export function createIntegrationRouter() {
   });
 
   return router;
+}
+
+function escapeHtml(value: string) {
+  return value.replace(/[&<>\"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', "'": '&#39;' }[character] || character));
 }
