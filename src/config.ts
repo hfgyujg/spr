@@ -24,12 +24,15 @@ const optionalTrimmedString = z.preprocess((value) => {
   return value;
 }, z.string().optional());
 
-const optionalTrimmedUrl = z.preprocess((value) => {
-  if (typeof value === 'string') {
-    const trimmed = value.trim();
-    return trimmed.length === 0 ? undefined : trimmed;
-  }
-  return value;
+// Railway deployments may expose APP_URL as a hostname without a scheme.
+// Normalize that value before URL validation so a harmless platform-format
+// difference cannot crash the production process during startup.
+const optionalNormalizedUrl = z.preprocess((value) => {
+  if (typeof value !== 'string') return value;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
 }, z.string().url().optional());
 
 const booleanString = z.union([z.literal('true'), z.literal('false'), z.literal('1'), z.literal('0')]);
@@ -39,7 +42,7 @@ const optionalPositiveIntegerString = z.optional(z.string().regex(/^[1-9][0-9]*$
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).optional(),
   PORT: optionalPositiveIntegerString,
-  APP_URL: optionalTrimmedUrl,
+  APP_URL: optionalNormalizedUrl,
   APP_ALLOWED_ORIGINS: optionalTrimmedString,
   ENFORCE_HTTPS: optionalBooleanString,
   TRUST_PROXY: optionalBooleanString,
@@ -68,10 +71,11 @@ const envSchema = z.object({
   SPR_INITIAL_OWNER_EMAIL: z.preprocess((value) => typeof value === 'string' ? (value.trim().toLowerCase() || undefined) : value, z.string().email().optional()),
   SPR_OWNER_BOOTSTRAP_SECRET: optionalTrimmedString,
   SPR_OWNER_BOOTSTRAP_SECRET_SHA256: z.preprocess((value) => typeof value === 'string' ? (value.trim().toLowerCase() || undefined) : value, z.string().regex(/^[a-f0-9]{64}$/).optional()),
-  SENTRY_DSN: optionalTrimmedUrl,
+  SENTRY_DSN: optionalNormalizedUrl,
   REDIS_URL: optionalTrimmedString,
   RATE_LIMIT_FAIL_OPEN: optionalBooleanString,
   MONITORING_ENABLED_TENANT_IDS: optionalTrimmedString,
+  RAILWAY_PUBLIC_DOMAIN: optionalTrimmedString,
 });
 
 const parseBoolean = (input: string | undefined, fallback: boolean) => input ? ['true', '1'].includes(input.trim().toLowerCase()) : fallback;
@@ -83,13 +87,17 @@ const parseNumber = (input: string | undefined, fallback: number) => {
 const parseCsv = (input: string | undefined) => input ? input.split(',').map((item) => item.trim()).filter(Boolean) : [];
 
 const parsedEnv = envSchema.parse(process.env);
+const platformUrl = parsedEnv.RAILWAY_PUBLIC_DOMAIN ? `https://${parsedEnv.RAILWAY_PUBLIC_DOMAIN}` : undefined;
+const appUrl = parsedEnv.APP_URL ?? platformUrl;
+const allowedOrigins = parseCsv(parsedEnv.APP_ALLOWED_ORIGINS);
+const effectiveAllowedOrigins = allowedOrigins.length ? allowedOrigins : (appUrl ? [appUrl] : []);
 
 export const config = {
   nodeEnv: parsedEnv.NODE_ENV ?? 'development',
   port: parsedEnv.PORT ? Number(parsedEnv.PORT) : 3000,
   isProduction: parsedEnv.NODE_ENV === 'production',
-  appUrl: parsedEnv.APP_URL,
-  allowedOrigins: parseCsv(parsedEnv.APP_ALLOWED_ORIGINS),
+  appUrl,
+  allowedOrigins: effectiveAllowedOrigins,
   enforceHttps: parseBoolean(parsedEnv.ENFORCE_HTTPS, false),
   trustProxy: parseBoolean(parsedEnv.TRUST_PROXY, false),
   allowIframe: parseBoolean(parsedEnv.ALLOW_IFRAME, false),
@@ -123,8 +131,8 @@ export function validateConfiguration() {
   if (!config.isProduction) return;
 
   const missing: string[] = [];
-  if (!config.appUrl) missing.push('APP_URL');
-  if (!config.allowedOrigins.length) missing.push('APP_ALLOWED_ORIGINS');
+  if (!config.appUrl) missing.push('APP_URL or RAILWAY_PUBLIC_DOMAIN');
+  if (!config.allowedOrigins.length) missing.push('APP_ALLOWED_ORIGINS or APP_URL');
   if (!config.enforceHttps) missing.push('ENFORCE_HTTPS=true');
   if (!config.trustProxy) missing.push('TRUST_PROXY=true');
   if (config.allowIframe) missing.push('ALLOW_IFRAME=false');
@@ -144,7 +152,7 @@ export function validateConfiguration() {
   if (missing.length) throw new Error(`Production security configuration incomplete: ${missing.join(', ')}.`);
 
   const appUrl = config.appUrl;
-  if (!appUrl) throw new Error('APP_URL is required in production.');
+  if (!appUrl) throw new Error('APP_URL or RAILWAY_PUBLIC_DOMAIN is required in production.');
   const appOrigin = new URL(appUrl).origin;
   const normalizedOrigins = config.allowedOrigins.map((origin) => new URL(origin).origin);
   if (!normalizedOrigins.includes(appOrigin)) {
