@@ -32,6 +32,8 @@ COPY --from=builder --chown=10001:10001 /app/index.html ./index.html
 EXPOSE 8080
 USER 10001:10001
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 CMD-SHELL curl -fsS "http://127.0.0.1:${PORT:-8080}/health" || exit 1
+# Follow the production HTTPS redirect during the local container health probe.
+# This keeps the probe fail-closed without weakening the application's HTTPS policy.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 CMD-SHELL curl -fsSL "http://127.0.0.1:${PORT:-8080}/health" || exit 1
 
 CMD ["sh", "-c", "case \"$PROCESS_ROLE\" in worker) exec node dist/worker.cjs ;; bootstrap) exec node dist/bootstrap-initial-owner.cjs ;; migrate) exec node dist/migrate.cjs ;; *) exec node dist/server.cjs ;; esac"]
