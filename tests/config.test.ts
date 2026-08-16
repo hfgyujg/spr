@@ -23,13 +23,17 @@ describe('configuration validation', () => {
     process.env.GOOGLE_APPLICATION_CREDENTIALS = '/tmp/test-service-account.json';
   };
 
-  it('parses development configuration and applies defaults', async () => {
-    process.env.NODE_ENV = 'development';
-    process.env.APP_URL = 'http://localhost:3000';
+  const setProductionDatabase = () => {
     process.env.SQL_HOST = 'localhost';
     process.env.SQL_USER = 'postgres';
     process.env.SQL_PASSWORD = 'postgres';
     process.env.SQL_DB_NAME = 'testdb';
+  };
+
+  it('parses development configuration and applies defaults', async () => {
+    process.env.NODE_ENV = 'development';
+    process.env.APP_URL = 'http://localhost:3000';
+    setProductionDatabase();
     process.env.GEMINI_API_KEY = 'test-key';
 
     const { config, validateConfiguration } = await import('../src/config.ts');
@@ -46,10 +50,7 @@ describe('configuration validation', () => {
   it('fails validation in production when APP_URL is missing', async () => {
     process.env.NODE_ENV = 'production';
     setProductionSecurityDefaults();
-    process.env.SQL_HOST = 'localhost';
-    process.env.SQL_USER = 'postgres';
-    process.env.SQL_PASSWORD = 'postgres';
-    process.env.SQL_DB_NAME = 'testdb';
+    setProductionDatabase();
     const { validateConfiguration } = await import('../src/config.ts');
 
     expect(() => validateConfiguration()).toThrow(/APP_URL/);
@@ -65,7 +66,7 @@ describe('configuration validation', () => {
     delete process.env.SQL_DB_NAME;
     const { validateConfiguration } = await import('../src/config.ts');
 
-    expect(() => validateConfiguration()).toThrow(/SQL_HOST, SQL_USER, SQL_PASSWORD, SQL_DB_NAME/);
+    expect(() => validateConfiguration()).toThrow(/DATABASE_URL or SQL_HOST\/SQL_USER\/SQL_PASSWORD\/SQL_DB_NAME/);
   });
 
   it('rejects invalid APP_URL formats during config parsing', async () => {
@@ -75,22 +76,17 @@ describe('configuration validation', () => {
     await expect(import('../src/config.ts')).rejects.toThrow(/Invalid url/);
   });
 
-  it('emits warnings for optional but recommended production settings', async () => {
+  it('does not require optional feature settings for production validation', async () => {
     process.env.NODE_ENV = 'production';
     setProductionSecurityDefaults();
+    setProductionDatabase();
     process.env.APP_URL = 'https://example.com';
-    process.env.SQL_HOST = 'localhost';
-    process.env.SQL_USER = 'postgres';
-    process.env.SQL_PASSWORD = 'postgres';
-    process.env.SQL_DB_NAME = 'testdb';
 
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const { validateConfiguration } = await import('../src/config.ts');
 
-    validateConfiguration();
-
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('SENTRY_DSN'));
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('STRIPE_SECRET_KEY'));
+    expect(() => validateConfiguration()).not.toThrow();
+    expect(warn).not.toHaveBeenCalled();
     warn.mockRestore();
   });
 });
