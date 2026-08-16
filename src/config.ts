@@ -125,11 +125,13 @@ export function validateConfiguration() {
   const missing: string[] = [];
   if (!config.appUrl) missing.push('APP_URL');
   if (!config.allowedOrigins.length) missing.push('APP_ALLOWED_ORIGINS');
+  if (!config.enforceHttps) missing.push('ENFORCE_HTTPS=true');
+  if (!config.trustProxy) missing.push('TRUST_PROXY=true');
+  if (config.allowIframe) missing.push('ALLOW_IFRAME=false');
   if (!config.database.isConfigured) missing.push('DATABASE_URL or SQL_HOST/SQL_USER/SQL_PASSWORD/SQL_DB_NAME');
   if (!config.database.ssl) missing.push('SQL_SSL=true/require');
   if (!config.redis.url) missing.push('REDIS_URL');
   if (!config.firebase.serviceAccountKey && !config.firebase.googleApplicationCredentials) missing.push('FIREBASE_SERVICE_ACCOUNT_KEY or GOOGLE_APPLICATION_CREDENTIALS');
-  if (!config.enforceHttps) missing.push('ENFORCE_HTTPS=true');
 
   const bootstrapValues = [config.ownerBootstrap.initialOwnerEmail, config.ownerBootstrap.secret, config.ownerBootstrap.secretSha256];
   if (bootstrapValues.some(Boolean) && !bootstrapValues.every(Boolean)) {
@@ -155,6 +157,8 @@ export const configurationCatalog = [
   { name: 'APP_URL', category: 'requiredProduction', requiredInProduction: true },
   { name: 'APP_ALLOWED_ORIGINS', category: 'requiredProduction', requiredInProduction: true },
   { name: 'ENFORCE_HTTPS', category: 'requiredProduction', requiredInProduction: true },
+  { name: 'TRUST_PROXY', category: 'requiredProduction', requiredInProduction: true },
+  { name: 'ALLOW_IFRAME', category: 'requiredProduction', requiredInProduction: true },
   { name: 'SQL_SSL', category: 'requiredProduction', requiredInProduction: true },
   { name: 'REDIS_URL', category: 'requiredProduction', requiredInProduction: true },
   { name: 'FIREBASE_SERVICE_ACCOUNT_KEY', category: 'requiredProduction', requiredInProduction: true },
