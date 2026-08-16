@@ -34,3 +34,5 @@ restartPolicyMaxRetries = 3
 # RAILWAY_DEPLOY.md) — it needs the same DATABASE_URL / FIREBASE_SERVICE_ACCOUNT_KEY /
 # REDIS_URL variables copied into its own Variables tab; Railway does not share
 # variables across services by default.
+
+# Deployment trigger: keep Railway on the current main branch configuration.
