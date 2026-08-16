@@ -14,6 +14,15 @@ describe('configuration validation', () => {
     vi.resetModules();
   });
 
+  const setProductionSecurityDefaults = () => {
+    process.env.APP_ALLOWED_ORIGINS = 'https://example.com';
+    process.env.ENFORCE_HTTPS = 'true';
+    process.env.TRUST_PROXY = 'true';
+    process.env.SQL_SSL = 'true';
+    process.env.REDIS_URL = 'redis://localhost:6379';
+    process.env.GOOGLE_APPLICATION_CREDENTIALS = '/tmp/test-service-account.json';
+  };
+
   it('parses development configuration and applies defaults', async () => {
     process.env.NODE_ENV = 'development';
     process.env.APP_URL = 'http://localhost:3000';
@@ -36,6 +45,7 @@ describe('configuration validation', () => {
 
   it('fails validation in production when APP_URL is missing', async () => {
     process.env.NODE_ENV = 'production';
+    setProductionSecurityDefaults();
     process.env.SQL_HOST = 'localhost';
     process.env.SQL_USER = 'postgres';
     process.env.SQL_PASSWORD = 'postgres';
@@ -47,6 +57,7 @@ describe('configuration validation', () => {
 
   it('fails validation in production when database configuration is incomplete', async () => {
     process.env.NODE_ENV = 'production';
+    setProductionSecurityDefaults();
     process.env.APP_URL = 'https://example.com';
     process.env.SQL_HOST = 'localhost';
     delete process.env.SQL_USER;
@@ -66,6 +77,7 @@ describe('configuration validation', () => {
 
   it('emits warnings for optional but recommended production settings', async () => {
     process.env.NODE_ENV = 'production';
+    setProductionSecurityDefaults();
     process.env.APP_URL = 'https://example.com';
     process.env.SQL_HOST = 'localhost';
     process.env.SQL_USER = 'postgres';
@@ -77,7 +89,6 @@ describe('configuration validation', () => {
 
     validateConfiguration();
 
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('REDIS_URL'));
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('SENTRY_DSN'));
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('STRIPE_SECRET_KEY'));
     warn.mockRestore();
