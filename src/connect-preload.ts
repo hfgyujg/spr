@@ -12,9 +12,9 @@ express.application.use = function patchedUse(this: any, ...args: any[]) {
     const candidate = args[1];
     const looksLikeRouter = typeof candidate === 'function' && candidate.stack;
     if (looksLikeRouter) {
+      mounted = true;
       this.use('/api', createPublicConnectRouter());
       this.use('/api', createConnectRouter());
-      mounted = true;
     }
   }
   return result;
