@@ -29,9 +29,9 @@ COPY --from=builder --chown=10001:10001 /app/migrations ./migrations
 COPY --from=builder --chown=10001:10001 /app/firebase-applet-config.json ./firebase-applet-config.json
 COPY --from=builder --chown=10001:10001 /app/index.html ./index.html
 
-EXPOSE 3000
+EXPOSE 8080
 USER 10001:10001
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 CMD ["curl", "-fsS", "http://127.0.0.1:3000/health"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 CMD-SHELL curl -fsS "http://127.0.0.1:${PORT:-8080}/health" || exit 1
 
 CMD ["sh", "-c", "case \"$PROCESS_ROLE\" in worker) exec node dist/worker.cjs ;; bootstrap) exec node dist/bootstrap-initial-owner.cjs ;; migrate) exec node dist/migrate.cjs ;; *) exec node dist/server.cjs ;; esac"]
