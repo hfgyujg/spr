@@ -143,7 +143,9 @@ export function validateConfiguration() {
 
   if (missing.length) throw new Error(`Production security configuration incomplete: ${missing.join(', ')}.`);
 
-  const appOrigin = new URL(config.appUrl).origin;
+  const appUrl = config.appUrl;
+  if (!appUrl) throw new Error('APP_URL is required in production.');
+  const appOrigin = new URL(appUrl).origin;
   const normalizedOrigins = config.allowedOrigins.map((origin) => new URL(origin).origin);
   if (!normalizedOrigins.includes(appOrigin)) {
     throw new Error('APP_ALLOWED_ORIGINS must explicitly include APP_URL origin.');
