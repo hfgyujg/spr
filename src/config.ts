@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -24,13 +24,17 @@ const optionalTrimmedString = z.preprocess((value) => {
   return value;
 }, z.string().optional());
 
+// Platform-provided URLs may arrive as bare hostnames or malformed/empty values.
+// Treat an unusable optional URL as absent so production can use a known platform
+// fallback (for example RAILWAY_PUBLIC_DOMAIN) and report a clear configuration
+// error only when no usable production URL exists.
 const optionalNormalizedUrl = z.preprocess((value) => {
   if (typeof value !== 'string') return value;
   const trimmed = value.trim();
   if (!trimmed) return undefined;
   if (/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)) return trimmed;
   return `https://${trimmed}`;
-}, z.string().url().optional());
+}, z.string().url().optional()).catch(undefined);
 
 const optionalTrimmedUrl = optionalNormalizedUrl;
 const booleanString = z.union([z.literal('true'), z.literal('false'), z.literal('1'), z.literal('0')]);
