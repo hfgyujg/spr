@@ -1,37 +1,37 @@
-# Build stage
+# syntax=docker/dockerfile:1.7
+
 FROM node:22-slim AS builder
 WORKDIR /app
+ENV NODE_ENV=development
 
-# Install build dependencies and application packages
 COPY package.json package-lock.json ./
-RUN npm ci
-
-# Copy source and build artifacts
+RUN npm ci --ignore-scripts
 COPY . ./
-RUN npm run build
-# Build the database migration runner
+RUN npm run typecheck && npm run build
 RUN npx esbuild scripts/migrate.ts --bundle --platform=node --format=cjs --packages=external --outfile=dist/migrate.cjs
 RUN npm prune --production
 
-# Runtime stage
 FROM node:22-slim AS runtime
 WORKDIR /app
-
-RUN apt-get update && \
-    apt-get install -y unzip curl ca-certificates && \
-    curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin v1.49.0 && \
-    syft version && \
-    rm -rf /var/lib/apt/lists/*
-
-COPY --from=builder /app/package.json ./
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/migrations ./migrations
-COPY --from=builder /app/firebase-applet-config.json ./firebase-applet-config.json
-COPY --from=builder /app/Dockerfile.worker ./Dockerfile.worker
-COPY --from=builder /app/index.html ./index.html
-
 ENV NODE_ENV=production
+ENV NPM_CONFIG_UPDATE_NOTIFIER=false
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --system --gid 10001 spr \
+    && useradd --system --uid 10001 --gid 10001 --create-home --shell /usr/sbin/nologin spr
+
+COPY --from=builder --chown=10001:10001 /app/package.json ./
+COPY --from=builder --chown=10001:10001 /app/node_modules ./node_modules
+COPY --from=builder --chown=10001:10001 /app/dist ./dist
+COPY --from=builder --chown=10001:10001 /app/migrations ./migrations
+COPY --from=builder --chown=10001:10001 /app/firebase-applet-config.json ./firebase-applet-config.json
+COPY --from=builder --chown=10001:10001 /app/index.html ./index.html
+
 EXPOSE 3000
+USER 10001:10001
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 CMD ["curl", "-fsS", "http://127.0.0.1:3000/health"]
 
 CMD ["sh", "-c", "case \"$PROCESS_ROLE\" in worker) exec node dist/worker.cjs ;; bootstrap) exec node dist/bootstrap-initial-owner.cjs ;; migrate) exec node dist/migrate.cjs ;; *) exec node dist/server.cjs ;; esac"]
