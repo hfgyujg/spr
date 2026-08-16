@@ -56,6 +56,34 @@ describe('configuration validation', () => {
     expect(() => validateConfiguration()).toThrow(/APP_URL/);
   });
 
+  it('uses the Railway public domain when APP_URL is blank', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.APP_URL = '   ';
+    process.env.RAILWAY_PUBLIC_DOMAIN = 'spr-app-production.up.railway.app';
+    setProductionSecurityDefaults();
+    setProductionDatabase();
+    process.env.APP_ALLOWED_ORIGINS = 'https://spr-app-production.up.railway.app';
+
+    const { config, validateConfiguration } = await import('../src/config.ts');
+
+    expect(config.appUrl).toBe('https://spr-app-production.up.railway.app');
+    expect(() => validateConfiguration()).not.toThrow();
+  });
+
+  it('uses the Railway public domain when APP_URL is malformed', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.APP_URL = 'not-a-valid-url';
+    process.env.RAILWAY_PUBLIC_DOMAIN = 'spr-app-production.up.railway.app';
+    setProductionSecurityDefaults();
+    setProductionDatabase();
+    process.env.APP_ALLOWED_ORIGINS = 'https://spr-app-production.up.railway.app';
+
+    const { config, validateConfiguration } = await import('../src/config.ts');
+
+    expect(config.appUrl).toBe('https://spr-app-production.up.railway.app');
+    expect(() => validateConfiguration()).not.toThrow();
+  });
+
   it('fails validation in production when database configuration is incomplete', async () => {
     process.env.NODE_ENV = 'production';
     setProductionSecurityDefaults();
@@ -69,11 +97,14 @@ describe('configuration validation', () => {
     expect(() => validateConfiguration()).toThrow(/DATABASE_URL or SQL_HOST\/SQL_USER\/SQL_PASSWORD\/SQL_DB_NAME/);
   });
 
-  it('rejects invalid APP_URL formats during config parsing', async () => {
+  it('treats an invalid optional APP_URL as absent instead of crashing config parsing', async () => {
     process.env.NODE_ENV = 'development';
     process.env.APP_URL = 'not-a-url';
 
-    await expect(import('../src/config.ts')).rejects.toThrow(/Invalid url/);
+    const { config, validateConfiguration } = await import('../src/config.ts');
+
+    expect(config.appUrl).toBeUndefined();
+    expect(() => validateConfiguration()).not.toThrow();
   });
 
   it('does not require optional feature settings for production validation', async () => {
