@@ -1,5 +1,5 @@
-﻿# Build stage
-FROM node:20-slim AS builder
+# Build stage
+FROM node:22-slim AS builder
 WORKDIR /app
 
 # Install build dependencies and application packages
@@ -14,7 +14,7 @@ RUN npx esbuild scripts/migrate.ts --bundle --platform=node --format=cjs --packa
 RUN npm prune --production
 
 # Runtime stage
-FROM node:20-slim AS runtime
+FROM node:22-slim AS runtime
 WORKDIR /app
 
 RUN apt-get update && \
