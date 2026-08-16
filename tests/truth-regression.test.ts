@@ -22,12 +22,9 @@ describe('production truth regressions', () => {
 
   it('does not execute timer-driven TrustOS advisory responses', () => {
     const source = read('src/components/TrustOSView.tsx');
-    const handler = source.slice(
-      source.indexOf('const handleAskAdvisor'),
-      source.indexOf('// 4. Future Marketplace States')
-    );
-    expect(handler).toMatch(/apiFetch\('\/api\/ai\/advisor'/);
-    expect(handler).toMatch(/finally[\s\S]*setIsAdvisorLoading\(false\)[\s\S]*return;/);
+    expect(source).not.toMatch(/setInterval\([\s\S]{0,400}apiFetch\(['"]\/api\/ai\/advisor/);
+    expect(source).not.toMatch(/setTimeout\([\s\S]{0,400}apiFetch\(['"]\/api\/ai\/advisor/);
+    expect(source).not.toContain("apiFetch('/api/ai/advisor'");
   });
 
   it('does not label local self-passport evidence as verified', () => {
@@ -67,7 +64,7 @@ describe('production truth regressions', () => {
 
   it('starts newly registered subjects without unsupported trust scores', () => {
     const source = read('server.ts');
-    expect(source).toMatch(/trustScore:\s*0,\s*\r?\n\s*riskLevel:\s*'Unknown'/);
+    expect(source).toMatch(/trustScore:\s*0,\s*\n\s*riskLevel:\s*'Unknown'/);
     expect(source).toMatch(/const isPublisherVerified = false/);
     expect(source).toMatch(/const complianceScore = Math\.min\(100, verifiedEvidence \* 20\)/);
   });
