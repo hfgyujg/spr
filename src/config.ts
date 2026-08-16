@@ -24,9 +24,6 @@ const optionalTrimmedString = z.preprocess((value) => {
   return value;
 }, z.string().optional());
 
-// Railway deployments may expose APP_URL as a hostname without a scheme.
-// Normalize that value before URL validation so a harmless platform-format
-// difference cannot crash the production process during startup.
 const optionalNormalizedUrl = z.preprocess((value) => {
   if (typeof value !== 'string') return value;
   const trimmed = value.trim();
@@ -35,6 +32,7 @@ const optionalNormalizedUrl = z.preprocess((value) => {
   return `https://${trimmed}`;
 }, z.string().url().optional());
 
+const optionalTrimmedUrl = optionalNormalizedUrl;
 const booleanString = z.union([z.literal('true'), z.literal('false'), z.literal('1'), z.literal('0')]);
 const optionalBooleanString = z.optional(booleanString);
 const optionalPositiveIntegerString = z.optional(z.string().regex(/^[1-9][0-9]*$/, 'Must be a positive integer'));
@@ -121,7 +119,6 @@ export const config = {
   sentry: { dsn: parsedEnv.SENTRY_DSN },
   redis: {
     url: parsedEnv.REDIS_URL,
-    // Production is always fail-closed. This flag is retained for compatibility but cannot weaken production security.
     failOpen: !((parsedEnv.NODE_ENV === 'production')) && parseBoolean(parsedEnv.RATE_LIMIT_FAIL_OPEN, false),
   },
   monitoring: { enabledTenantIds: parseCsv(parsedEnv.MONITORING_ENABLED_TENANT_IDS) },
