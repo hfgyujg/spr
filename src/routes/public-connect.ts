@@ -2,9 +2,9 @@ import { Router } from 'express';
 import { sql } from 'drizzle-orm';
 import { db } from '../db/index.ts';
 
-function parseJson(value: unknown, fallback: any) {
+function parseJson<T = unknown>(value: unknown, fallback: T): T {
   if (typeof value !== 'string') return fallback;
-  try { return JSON.parse(value); } catch { return fallback; }
+  try { return JSON.parse(value) as T; } catch { return fallback; }
 }
 
 export function createPublicConnectRouter() {
