@@ -10,6 +10,7 @@ import {
 } from '../db/schema.ts';
 import { AuthenticatedRequest, requireAuth, requireRole } from '../middleware/security.ts';
 import { COLLECTORS, advanceSchedule, collectorJobKey, observationWindow } from '../utils/monitoring.ts';
+import { createIntegrationRouter } from './integration.ts';
 
 const scheduleSchema = z.number().int().min(900).max(2_592_000);
 const monitoringCreateSchema = z.object({
@@ -76,6 +77,9 @@ function publicConfiguration(row: typeof monitoringConfigurations.$inferSelect) 
 
 export function createMonitoringRouter() {
   const router = Router();
+  // SPR Connect is deliberately mounted before the monitoring auth/tenant gate.
+  // Its machine-to-machine routes perform their own API-key authentication.
+  router.use('/v1', createIntegrationRouter());
   router.use((req: AuthenticatedRequest, res, next) => {
     const requestId = typeof req.headers['x-request-id'] === 'string'
       ? req.headers['x-request-id'].slice(0, 100)
@@ -279,11 +283,8 @@ export function createMonitoringRouter() {
       ...(body.enabled === undefined ? {} : { enabled: body.enabled ? 1 : 0 }),
       updatedBy: req.user!.uid, updatedAt: new Date().toISOString(),
     };
-    const [updated] = await db.update(alertSubscriptions).set({
-      ...update,
-    }).where(and(
-      eq(alertSubscriptions.id, req.params.id),
-      eq(alertSubscriptions.tenantId, req.user!.tenantId),
+    const [updated] = await db.update(alertSubscriptions).set({ ...update }).where(and(
+      eq(alertSubscriptions.id, req.params.id), eq(alertSubscriptions.tenantId, req.user!.tenantId),
     )).returning();
     if (!updated) return res.status(404).json({ error: 'ALERT_SUBSCRIPTION_NOT_FOUND' });
     res.json({ ...updated, alertTypes: JSON.parse(updated.alertTypes), enabled: updated.enabled === 1 });
@@ -291,8 +292,7 @@ export function createMonitoringRouter() {
 
   router.delete('/alert-subscriptions/:id', requireRole(['Technician']), async (req: AuthenticatedRequest, res) => {
     const deleted = await db.delete(alertSubscriptions).where(and(
-      eq(alertSubscriptions.id, req.params.id),
-      eq(alertSubscriptions.tenantId, req.user!.tenantId),
+      eq(alertSubscriptions.id, req.params.id), eq(alertSubscriptions.tenantId, req.user!.tenantId),
     )).returning({ id: alertSubscriptions.id });
     if (!deleted[0]) return res.status(404).json({ error: 'ALERT_SUBSCRIPTION_NOT_FOUND' });
     res.status(204).send();
