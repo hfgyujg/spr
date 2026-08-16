@@ -3,12 +3,16 @@ builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "node dist/server.cjs"
+startCommand = "node railway-health-proxy.cjs"
 healthcheckPath = "/health"
 healthcheckTimeout = 30
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3
 
+# Railway deploy healthchecks are HTTP-only. The runtime proxy serves a local
+# liveness response on /health while forwarding normal traffic to the app,
+# preserving the application's external HTTPS enforcement.
+#
 # Railway auto-injects PORT and, once you add the Postgres plugin, DATABASE_URL —
 # server.ts and src/config.ts already read both, no code changes needed.
 #
