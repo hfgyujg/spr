@@ -35,6 +35,6 @@ USER 10001:10001
 
 # The proxy provides a local HTTP liveness endpoint for Railway while
 # preserving the application's HTTPS redirect for all external requests.
-HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 CMD-SHELL curl -fsS "http://127.0.0.1:${PORT:-8080}/health" || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 CMD curl -fsS "http://127.0.0.1:${PORT:-8080}/health" || exit 1
 
 CMD ["sh", "-c", "case \"$PROCESS_ROLE\" in worker) exec node dist/worker.cjs ;; bootstrap) exec node dist/bootstrap-initial-owner.cjs ;; migrate) exec node dist/migrate.cjs ;; *) exec node dist/server.cjs ;; esac"]
