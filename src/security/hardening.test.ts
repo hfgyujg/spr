@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { isPrivateIp, timingSafeEqualHex, validateExternalHttpsUrl, verifySha256Secret } from './hardening.ts';
 
@@ -5,7 +6,6 @@ const SECRET = 'spr-production-bootstrap-secret';
 
 describe('production hardening primitives', () => {
   it('verifies SHA-256 bootstrap secrets without plain-text comparison', () => {
-    const { createHash } = require('node:crypto');
     const hash = createHash('sha256').update(SECRET, 'utf8').digest('hex');
     expect(verifySha256Secret(SECRET, hash)).toBe(true);
     expect(verifySha256Secret('wrong-secret', hash)).toBe(false);
