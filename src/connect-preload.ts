@@ -1,5 +1,6 @@
 import express from 'express';
 import { createConnectRouter } from './routes/connect.ts';
+import { createPublicConnectRouter } from './routes/public-connect.ts';
 
 const originalUse = express.application.use;
 let mounted = false;
@@ -11,6 +12,7 @@ express.application.use = function patchedUse(this: any, ...args: any[]) {
     const candidate = args[1];
     const looksLikeRouter = typeof candidate === 'function' && candidate.stack;
     if (looksLikeRouter) {
+      this.use('/api', createPublicConnectRouter());
       this.use('/api', createConnectRouter());
       mounted = true;
     }
