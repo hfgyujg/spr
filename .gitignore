@@ -1,7 +1,25 @@
-node_modules
+node_modules/
 /dist
 npm-debug.log*
 .env
+.env.*
+!.env.example
 .DS_Store
 tmp/
-.vercel
+tmp_*
+.vercel/
+.vscode/
+*.zip
+*.log
+*.err
+*.out
+*.bak
+*.tmp
+*.code-workspace
+# Local credential/export artifacts
+dbpass.txt
+secret*.json
+*password*.json
+*credential*.json
+# Local test/debug artifacts
+test-temp-file.txt
