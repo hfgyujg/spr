@@ -34,7 +34,7 @@ jobs:
         run: npm run typecheck
 
       - name: Security tests
-        run: npx vitest run src/security/hardening.test.ts
+        run: npx vitest run --config vitest.config.ts
 
       - name: Dependency audit
         run: npm audit --audit-level=high
