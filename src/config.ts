@@ -24,18 +24,22 @@ const optionalTrimmedString = z.preprocess((value) => {
   return value;
 }, z.string().optional());
 
-// Platform-provided URLs may arrive as bare hostnames or malformed/empty values.
-// Treat an unusable optional URL as absent so production can use a known platform
-// fallback (for example RAILWAY_PUBLIC_DOMAIN) and report a clear configuration
-// error only when no usable production URL exists.
-const optionalNormalizedUrl = z.preprocess((value) => {
+const normalizeOptionalUrl = (value: unknown): unknown => {
   if (typeof value !== 'string') return value;
   const trimmed = value.trim();
   if (!trimmed) return undefined;
-  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)) return trimmed;
-  return `https://${trimmed}`;
-}, z.string().url().optional()).catch(undefined);
+  const candidate = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    const parsed = new URL(candidate);
+    if (!['http:', 'https:'].includes(parsed.protocol)) return undefined;
+    if (parsed.hostname !== 'localhost' && !parsed.hostname.includes('.')) return undefined;
+    return parsed.toString().replace(/\/$/, '');
+  } catch {
+    return undefined;
+  }
+};
 
+const optionalNormalizedUrl = z.preprocess(normalizeOptionalUrl, z.string().url().optional());
 const optionalTrimmedUrl = optionalNormalizedUrl;
 const booleanString = z.union([z.literal('true'), z.literal('false'), z.literal('1'), z.literal('0')]);
 const optionalBooleanString = z.optional(booleanString);
@@ -121,16 +125,12 @@ export const config = {
   firebase: { serviceAccountKey: parsedEnv.FIREBASE_SERVICE_ACCOUNT_KEY, googleApplicationCredentials: parsedEnv.GOOGLE_APPLICATION_CREDENTIALS },
   ownerBootstrap: { initialOwnerEmail: parsedEnv.SPR_INITIAL_OWNER_EMAIL, secret: parsedEnv.SPR_OWNER_BOOTSTRAP_SECRET, secretSha256: parsedEnv.SPR_OWNER_BOOTSTRAP_SECRET_SHA256 },
   sentry: { dsn: parsedEnv.SENTRY_DSN },
-  redis: {
-    url: parsedEnv.REDIS_URL,
-    failOpen: !((parsedEnv.NODE_ENV === 'production')) && parseBoolean(parsedEnv.RATE_LIMIT_FAIL_OPEN, false),
-  },
+  redis: { url: parsedEnv.REDIS_URL, failOpen: !((parsedEnv.NODE_ENV === 'production')) && parseBoolean(parsedEnv.RATE_LIMIT_FAIL_OPEN, false) },
   monitoring: { enabledTenantIds: parseCsv(parsedEnv.MONITORING_ENABLED_TENANT_IDS) },
 };
 
 export function validateConfiguration() {
   if (!config.isProduction) return;
-
   const missing: string[] = [];
   if (!config.appUrl) missing.push('APP_URL or RAILWAY_PUBLIC_DOMAIN');
   if (!config.allowedOrigins.length) missing.push('APP_ALLOWED_ORIGINS or APP_URL');
@@ -141,27 +141,14 @@ export function validateConfiguration() {
   if (!config.database.ssl) missing.push('SQL_SSL=true/require');
   if (!config.redis.url) missing.push('REDIS_URL');
   if (!config.firebase.serviceAccountKey && !config.firebase.googleApplicationCredentials) missing.push('FIREBASE_SERVICE_ACCOUNT_KEY or GOOGLE_APPLICATION_CREDENTIALS');
-
   const bootstrapValues = [config.ownerBootstrap.initialOwnerEmail, config.ownerBootstrap.secret, config.ownerBootstrap.secretSha256];
-  if (bootstrapValues.some(Boolean) && !bootstrapValues.every(Boolean)) {
-    throw new Error('Incomplete initial-owner bootstrap configuration: all three bootstrap values are required together.');
-  }
-  if (config.ownerBootstrap.secret && config.ownerBootstrap.secret.length < 32) {
-    throw new Error('SPR_OWNER_BOOTSTRAP_SECRET must contain at least 32 characters.');
-  }
-
+  if (bootstrapValues.some(Boolean) && !bootstrapValues.every(Boolean)) throw new Error('Incomplete initial-owner bootstrap configuration: all three bootstrap values are required together.');
+  if (config.ownerBootstrap.secret && config.ownerBootstrap.secret.length < 32) throw new Error('SPR_OWNER_BOOTSTRAP_SECRET must contain at least 32 characters.');
   if (missing.length) throw new Error(`Production security configuration incomplete: ${missing.join(', ')}.`);
-
-  const appUrl = config.appUrl;
-  if (!appUrl) throw new Error('APP_URL or RAILWAY_PUBLIC_DOMAIN is required in production.');
-  const appOrigin = new URL(appUrl).origin;
+  const appOrigin = new URL(config.appUrl!).origin;
   const normalizedOrigins = config.allowedOrigins.map((origin) => new URL(origin).origin);
-  if (!normalizedOrigins.includes(appOrigin)) {
-    throw new Error('APP_ALLOWED_ORIGINS must explicitly include APP_URL origin.');
-  }
-  if (normalizedOrigins.some((origin) => origin === 'null' || origin.includes('*'))) {
-    throw new Error('Wildcard/null CORS origins are forbidden in production.');
-  }
+  if (!normalizedOrigins.includes(appOrigin)) throw new Error('APP_ALLOWED_ORIGINS must explicitly include APP_URL origin.');
+  if (normalizedOrigins.some((origin) => origin === 'null' || origin.includes('*'))) throw new Error('Wildcard/null CORS origins are forbidden in production.');
 }
 
 export const configurationCatalog = [
