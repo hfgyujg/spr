@@ -1,6 +1,5 @@
 -- MSP trust-record immutability hardening.
--- Prevents post-creation mutation/deletion of provenance, claims, changes,
--- relationships, responsibilities, policy versions/results, and AI trust records.
+-- Added as a new migration so existing production migration IDs remain unchanged.
 
 CREATE OR REPLACE FUNCTION msp_reject_trust_mutation() RETURNS trigger AS $$
 BEGIN
@@ -8,7 +7,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Source provenance is historical evidence metadata and must not be rewritten.
 DROP TRIGGER IF EXISTS trg_msp_sources_immutable ON msp_sources;
 CREATE TRIGGER trg_msp_sources_immutable BEFORE UPDATE OR DELETE ON msp_sources
 FOR EACH ROW EXECUTE FUNCTION msp_reject_trust_mutation();
@@ -45,13 +43,8 @@ DROP TRIGGER IF EXISTS trg_msp_roi_records_immutable ON msp_roi_records;
 CREATE TRIGGER trg_msp_roi_records_immutable BEFORE UPDATE OR DELETE ON msp_roi_records
 FOR EACH ROW EXECUTE FUNCTION msp_reject_trust_mutation();
 
--- Make policy versions explicitly append-only at the database boundary.
 ALTER TABLE msp_policy_versions
-  ADD CONSTRAINT msp_policy_version_positive CHECK (version > 0);
+  ADD CONSTRAINT msp_policy_version_positive_0013 CHECK (version > 0);
 
--- Prevent duplicate semantic change records from being replayed into the graph.
-CREATE UNIQUE INDEX IF NOT EXISTS idx_msp_changes_dedup
+CREATE UNIQUE INDEX IF NOT EXISTS idx_msp_changes_dedup_0013
   ON msp_changes (tenant_id, entity_id, change_type, observed_at, what_changed);
-
--- Evidence/claim links are already uniquely constrained by (claim_id, evidence_id, relation)
--- in migration 0009; retain that constraint as the replay boundary.

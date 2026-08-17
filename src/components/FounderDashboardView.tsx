@@ -59,7 +59,7 @@ export default function FounderDashboardView({ userRole }: { userRole: string })
         const body = await response.json().catch(() => null);
         return [key, { ok: response.ok, status: response.status, body }] as const;
       } catch (cause: any) {
-        return [key, { ok: false, status: 0, error: cause?.message || 'Request failed' }] as const;
+        return [key, { ok: false, status: 0, body: null, error: cause?.message || 'Request failed' }] as const;
       }
     }));
     const nextData: AnyRecord = {}; const nextStates: Record<string, LoadState> = {};

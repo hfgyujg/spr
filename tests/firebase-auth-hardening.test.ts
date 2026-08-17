@@ -24,7 +24,7 @@ describe('Firebase authentication hardening guards', () => {
   });
 
   it('fails closed when production Firebase Admin credentials are unavailable or invalid', () => {
-    expect(firebaseAdmin).toContain("if (config.isProduction) {\n    throw new Error('Firebase Admin credentials are required in production.');\n  }");
+    expect(firebaseAdmin).toMatch(/if \(config\.isProduction\)\s*throw new Error\('Firebase Admin credentials are required in production\.'\);/);
     expect(firebaseAdmin).toContain("Invalid FIREBASE_SERVICE_ACCOUNT_KEY configuration.");
   });
 
