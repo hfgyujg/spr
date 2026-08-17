@@ -6,6 +6,7 @@ describe('configuration validation', () => {
   beforeEach(() => {
     vi.resetModules();
     process.env = { ...originalEnv };
+    delete process.env.DATABASE_URL;
     process.env.SKIP_DOTENV = 'true';
   });
 
