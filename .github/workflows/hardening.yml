@@ -63,6 +63,28 @@ jobs:
             exit 1
           fi
 
+      - name: Validate migration ordering and safety
+        shell: bash
+        run: |
+          set -euo pipefail
+          versions=$(find migrations -maxdepth 1 -type f -name '[0-9][0-9][0-9][0-9]_*.sql' -printf '%f\n' | sort)
+          test -n "$versions"
+          expected=0
+          while IFS= read -r file; do
+            version=${file%%_*}
+            number=$((10#$version))
+            if [ "$number" -ne "$expected" ]; then
+              echo "ERROR: migration sequence gap/duplicate before $file (expected $(printf '%04d' "$expected"))."
+              exit 1
+            fi
+            expected=$((expected + 1))
+          done <<< "$versions"
+          if grep -nE --include='*.sql' '(^|[[:space:]])(DROP[[:space:]]+TABLE|TRUNCATE|DROP[[:space:]]+SCHEMA)([[:space:]]|;|$)' migrations; then
+            echo 'ERROR: destructive migration keyword detected.'
+            exit 1
+          fi
+          echo "Validated $expected ordered migrations."
+
       - name: Verify lockfile integrity
         run: npm ci --ignore-scripts
 
