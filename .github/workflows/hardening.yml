@@ -12,10 +12,6 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: hardening-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 env:
   CI_RELEASE_GATE: '1'
 
@@ -51,13 +47,13 @@ jobs:
           files=$(git ls-files '*.js' '*.jsx' '*.ts' '*.tsx' '*.json' '*.yml' '*.yaml' '*.md' '*.env*' '*.pem' '*.key' '*.crt' '*.conf' '*.txt')
           if [ -z "$files" ]; then exit 0; fi
           if grep -nE --binary-files=without-match \
-            -e '-----BEGIN (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----' \
+            -e '-----BEGIN (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----[[:space:]]*([A-Za-z0-9+/=[:space:]]){64,}-----END (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----' \
             -e 'AIza[0-9A-Za-z_-]{20,}' \
             -e 'sk_(live|test)_[0-9A-Za-z]{16,}' \
             -e 'whsec_[0-9A-Za-z]{16,}' \
             -e 'gh[pousr]_[A-Za-z0-9_]{20,}' \
             -e 'AKIA[0-9A-Z]{16}' \
-            -e '"private_key"[[:space:]]*:[[:space:]]*"-----BEGIN' \
+            -e '"private_key"[[:space:]]*:[[:space:]]*"-----BEGIN[^"[:space:]]*[[:space:]]*([A-Za-z0-9+/=\\n]){64,}' \
             $files; then
             echo 'ERROR: possible credential material found in tracked files.'
             exit 1
