@@ -7,7 +7,7 @@ import { passports, trustObservations, trustObservationChanges, evidenceItems } 
 import { requireAuth, requireRole, rateLimiter, AuthenticatedRequest } from '../middleware/security.ts';
 import {
   calculateClientImpact, calculateRoi, detectEvidenceConflict, evaluateAiDecision,
-  evaluatePolicy, freshness, mapResponsibility, validateExternalUrl,
+  evaluatePolicy, freshness, validateExternalUrl,
 } from '../utils/msp-digital-trust.ts';
 import { verifyEvidenceIntegrity } from '../utils/evidence-integrity.ts';
 
@@ -78,9 +78,9 @@ async function audit(tenantId: string, actor: string, action: string, payload: R
   const now = new Date().toISOString();
   const previous = await db.execute(sql`SELECT current_hash FROM audit_trail WHERE tenant_id=${tenantId} ORDER BY id DESC LIMIT 1`);
   const previousHash = previous.rows.length ? String((previous.rows[0] as any).current_hash) : 'GENESIS';
-  await db.execute(sql`INSERT INTO audit_trail (tenant_id, action, timestamp, actor, payload, previous_hash, current_hash)
-    VALUES (${tenantId}, ${`MSP_${action}`}, ${now}, ${actor}, ${JSON.stringify(payload)}, ${previousHash}, 'pending')`);
-  const inserted = await db.execute(sql`SELECT current_hash FROM audit_trail WHERE tenant_id=${tenantId} AND action=${`MSP_${action}`} AND actor=${actor} AND timestamp=${now} ORDER BY id DESC LIMIT 1`);
+  const inserted = await db.execute(sql`INSERT INTO audit_trail (tenant_id, action, timestamp, actor, payload, previous_hash, current_hash)
+    VALUES (${tenantId}, ${`MSP_${action}`}, ${now}, ${actor}, ${JSON.stringify(payload)}, ${previousHash}, 'pending')
+    RETURNING current_hash`);
   return inserted.rows.length ? String((inserted.rows[0] as any).current_hash) : null;
 }
 
