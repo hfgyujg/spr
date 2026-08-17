@@ -1,6 +1,7 @@
 import express from 'express';
 import { createConnectRouter } from './routes/connect.ts';
 import { createPublicConnectRouter } from './routes/public-connect.ts';
+import { createMspDigitalTrustRouter } from './routes/msp-digital-trust.ts';
 import { productionHardeningMiddleware } from './middleware/production-hardening.ts';
 
 const originalUse = express.application.use;
@@ -23,6 +24,7 @@ express.application.use = function patchedUse(this: any, ...args: any[]) {
     const looksLikeRouter = typeof candidate === 'function' && candidate.stack;
     if (looksLikeRouter) {
       mounted = true;
+      this.use('/api/msp', createMspDigitalTrustRouter());
       this.use('/api', createPublicConnectRouter());
       this.use('/api', createConnectRouter());
     }
