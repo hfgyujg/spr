@@ -33,7 +33,8 @@ const authMessage = (error: any, fallback: string) => {
 };
 
 export default function LoginView({ onLoginSuccess }: LoginViewProps) {
-  const useMockAuth = import.meta.env.DEV === true || import.meta.env.VITE_FIREBASE_USE_MOCK_AUTH === 'true';
+  // Mock authentication is an explicit development/test opt-in only.
+  const useMockAuth = import.meta.env.VITE_FIREBASE_USE_MOCK_AUTH === 'true';
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -49,12 +50,24 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
       return;
     }
     if (!user) return;
-    onLoginSuccess({ uid: user.uid, email: user.email, displayName: user.displayName || user.email?.split('@')[0] || 'SPR user', token: await user.getIdToken(true), emailVerified: user.emailVerified, onboarded: 0 });
+
+    await user.reload();
+    const token = await user.getIdToken(true);
+    onLoginSuccess({
+      uid: user.uid,
+      email: user.email,
+      displayName: user.displayName || user.email?.split('@')[0] || 'SPR user',
+      token,
+      emailVerified: user.emailVerified,
+      onboarded: 0,
+    });
   };
 
   useEffect(() => {
     let active = true;
-    getRedirectResult(auth).then((result) => { if (active && result?.user) return completeSignIn(result.user); }).catch((err) => { if (active) setError(authMessage(err, 'Google sign-in could not be completed.')); });
+    getRedirectResult(auth)
+      .then((result) => { if (active && result?.user) return completeSignIn(result.user); })
+      .catch((err) => { if (active) setError(authMessage(err, 'Google sign-in could not be completed.')); });
     return () => { active = false; };
   }, []);
 
@@ -66,9 +79,21 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
     if (mode === 'signup' && password !== confirmPassword) return setError('Passwords do not match.');
     setLoading(true);
     try {
-      if (useMockAuth) { await new Promise((r) => setTimeout(r, 250)); await completeSignIn(null); return; }
-      const credential = mode === 'login' ? await signInWithEmailAndPassword(auth, normalizedEmail, password) : await createUserWithEmailAndPassword(auth, normalizedEmail, password);
-      if (mode === 'signup' && !credential.user.emailVerified) await sendEmailVerification(credential.user);
+      if (useMockAuth) {
+        await new Promise((r) => setTimeout(r, 250));
+        await completeSignIn(null);
+        return;
+      }
+
+      const credential = mode === 'login'
+        ? await signInWithEmailAndPassword(auth, normalizedEmail, password)
+        : await createUserWithEmailAndPassword(auth, normalizedEmail, password);
+
+      if (mode === 'signup' && !credential.user.emailVerified) {
+        await sendEmailVerification(credential.user);
+        setNotice('Account created. Check your email to verify the account before entering SPR.');
+      }
+
       await completeSignIn(credential.user);
     } catch (err: any) {
       console.error('[Firebase Auth] Email authentication failed:', err);
@@ -79,7 +104,11 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
   const signInWithGoogle = async () => {
     setLoading(true); setError(null); setNotice(null);
     try {
-      if (useMockAuth) { await new Promise((r) => setTimeout(r, 250)); await completeSignIn(null); return; }
+      if (useMockAuth) {
+        await new Promise((r) => setTimeout(r, 250));
+        await completeSignIn(null);
+        return;
+      }
       await completeSignIn((await signInWithPopup(auth, googleAuthProvider)).user);
     } catch (err: any) {
       if (['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment'].includes(err?.code)) { await signInWithRedirect(auth, googleAuthProvider); return; }
@@ -128,7 +157,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
             <button type="submit" disabled={loading} className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60">{loading ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <>{mode === 'login' ? 'Sign in' : 'Create account'}<ArrowRight className="h-4 w-4" /></>}</button>
           </form>
           <div className="my-6 flex items-center gap-4 text-xs font-medium text-slate-400 before:h-px before:flex-1 before:bg-slate-200 after:h-px after:flex-1 after:bg-slate-200">OR</div>
-          <button type="button" onClick={signInWithGoogle} disabled={loading} className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:opacity-60"><svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M21.6 12.23c0-.71-.06-1.4-.18-2.07H12v3.92h5.38a4.6 4.6 0 0 1-2 3.02v2.52h3.26c1.91-1.76 3.01-4.35 3.01-7.39Z"/><path fill="#34A853" d="M12 22c2.73 0 5.02-.9 6.69-2.44l-3.26-2.52c-.9.6-2.05.96-3.43.96-2.64 0-4.88-1.78-5.68-4.18H2.95v2.6A10.1 10.1 0 0 0 12 22Z"/><path fill="#FBBC05" d="M6.32 13.82A6.07 6.07 0 0 1 6 12c0-.63.11-1.24.32-1.82v-2.6H2.95A10.01 10.01 0 0 0 1.9 12c0 1.61.38 3.13 1.05 4.42l3.37-2.6Z"/><path fill="#EA4335" d="M12 6c1.49 0 2.83.51 3.88 1.5l2.91-2.91C17.02 2.98 14.73 2 12 2a10.1 10.1 0 0 0-9.05 5.58l3.37 2.6C7.12 7.78 9.36 6 12 6Z"/></svg>Continue with Google</button>
+          <button type="button" onClick={signInWithGoogle} disabled={loading} className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:opacity-60"><svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M21.6 12.23c0-.71-.06-1.4-.18-2.07H12v3.92h5.38a4.6 4.6 0 0 1-2 3.02v2.52h3.26c1.91-1.76 3.01-4.35 3.01-7.39Z"/><path fill="#34A853" d="M12 22c2.73 0 5.02-.9 6.69-2.44l-3.26-2.52c-.9.6-2.05.96-3.43.96-2.64 0-4.88-1.78-4.88-4.18H5.68v2.6A10.1 10.1 0 0 0 12 22Z"/><path fill="#FBBC05" d="M6.32 13.82A6.07 6.07 0 0 1 6 12c0-.63.11-1.24.32-1.82v-2.6H2.95A10.01 10.01 0 0 0 1.9 12c0 1.61.38 3.13 1.05 4.42l3.37-2.6Z"/><path fill="#EA4335" d="M12 6c1.49 0 2.83.51 3.88 1.5l2.91-2.91C17.02 2.98 14.73 2 12 2a10.1 10.1 0 0 0-9.05 5.58l3.37 2.6C7.12 7.78 9.36 6 12 6Z"/></svg>Continue with Google</button>
           <p className="mt-7 text-center text-xs leading-5 text-slate-400">By continuing, you agree to your organization’s access and security policies.</p>
         </div>
       </section>
