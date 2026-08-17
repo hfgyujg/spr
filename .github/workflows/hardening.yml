@@ -46,16 +46,33 @@ jobs:
           set -euo pipefail
           files=$(git ls-files '*.js' '*.jsx' '*.ts' '*.tsx' '*.json' '*.yml' '*.yaml' '*.md' '*.env*' '*.pem' '*.key' '*.crt' '*.conf' '*.txt')
           if [ -z "$files" ]; then exit 0; fi
+
+          # Single-line credential patterns.
           if grep -nE --binary-files=without-match \
-            -e '-----BEGIN (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----[[:space:]]*([A-Za-z0-9+/=[:space:]]){64,}-----END (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----' \
             -e 'AIza[0-9A-Za-z_-]{20,}' \
             -e 'sk_(live|test)_[0-9A-Za-z]{16,}' \
             -e 'whsec_[0-9A-Za-z]{16,}' \
             -e 'gh[pousr]_[A-Za-z0-9_]{20,}' \
             -e 'AKIA[0-9A-Z]{16}' \
-            -e '"private_key"[[:space:]]*:[[:space:]]*"-----BEGIN[^"[:space:]]*[[:space:]]*([A-Za-z0-9+/=\\n]){64,}' \
             $files; then
             echo 'ERROR: possible credential material found in tracked files.'
+            exit 1
+          fi
+
+          # Multi-line PEM private keys. Placeholder headers alone are not secrets,
+          # but a real key must contain a substantial encoded body and matching footer.
+          if grep -Pzo --binary-files=without-match \
+            '-----BEGIN (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----\s*[A-Za-z0-9+/=\r\n]{64,}-----END (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----' \
+            $files >/dev/null 2>&1; then
+            echo 'ERROR: possible private key material found in tracked files.'
+            exit 1
+          fi
+
+          # JSON-encoded service-account private keys may contain escaped newlines.
+          if grep -Pzo --binary-files=without-match \
+            '"private_key"\s*:\s*"-----BEGIN [^"]*PRIVATE KEY-----[^"\r\n]{64,}-----END [^"]*PRIVATE KEY-----"' \
+            $files >/dev/null 2>&1; then
+            echo 'ERROR: possible JSON-encoded private key material found in tracked files.'
             exit 1
           fi
 
@@ -75,7 +92,8 @@ jobs:
             fi
             expected=$((expected + 1))
           done <<< "$versions"
-          if grep -nE --include='*.sql' '(^|[[:space:]])(DROP[[:space:]]+TABLE|TRUNCATE|DROP[[:space:]]+SCHEMA)([[:space:]]|;|$)' migrations; then
+
+          if grep -RInE --include='*.sql' '(^|[[:space:]])(DROP[[:space:]]+TABLE|TRUNCATE|DROP[[:space:]]+SCHEMA)([[:space:]]|;|$)' migrations; then
             echo 'ERROR: destructive migration keyword detected.'
             exit 1
           fi
