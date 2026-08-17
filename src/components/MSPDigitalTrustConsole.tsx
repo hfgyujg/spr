@@ -33,8 +33,10 @@ export default function MSPDigitalTrustConsole() {
       : active === 'evidence' ? (passportId ? `/api/msp/evidence/${encodeURIComponent(passportId)}` : null)
       : active === 'changes' ? (passportId ? `/api/msp/changes/${encodeURIComponent(passportId)}` : null)
       : active === 'impact' ? (passportId ? `/api/msp/impact/${encodeURIComponent(passportId)}` : null)
-      : active === 'dependencies' ? (passportId ? `/api/msp/dependencies/${encodeURIComponent(passportId)}` : null)
       : active === 'services' ? '/api/msp/services'
+      : active === 'clients' ? '/api/msp/clients'
+      : active === 'policies' ? '/api/msp/policies'
+      : active === 'reports' ? '/api/msp/reports/current'
       : null;
     if (!endpoint) { setData(null); setError(null); return; }
     let cancelled = false;
