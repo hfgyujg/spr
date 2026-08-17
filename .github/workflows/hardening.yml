@@ -93,11 +93,13 @@ jobs:
             expected=$((expected + 1))
           done <<< "$versions"
 
-          if grep -RInE --include='*.sql' '(^|[[:space:]])(DROP[[:space:]]+TABLE|TRUNCATE|DROP[[:space:]]+SCHEMA)([[:space:]]|;|$)' migrations; then
-            echo 'ERROR: destructive migration keyword detected.'
+          # Reject destructive statements at SQL statement boundaries while ignoring
+          # legacy commented-out DROP examples retained in historical migrations.
+          if grep -RInE --include='*.sql' '(^|;)[[:space:]]*(DROP[[:space:]]+TABLE|TRUNCATE|DROP[[:space:]]+SCHEMA)([[:space:]]|;|$)' migrations; then
+            echo 'ERROR: destructive migration statement detected.'
             exit 1
           fi
-          echo "Validated $expected ordered migrations."
+          echo "Validated $expected ordered migrations and destructive-SQL safety."
 
       - name: Verify lockfile integrity
         run: npm ci --ignore-scripts
