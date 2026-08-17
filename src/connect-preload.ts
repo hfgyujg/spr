@@ -1,12 +1,22 @@
 import express from 'express';
 import { createConnectRouter } from './routes/connect.ts';
 import { createPublicConnectRouter } from './routes/public-connect.ts';
+import { productionHardeningMiddleware } from './middleware/production-hardening.ts';
 
 const originalUse = express.application.use;
 let mounted = false;
+let hardened = false;
 
 express.application.use = function patchedUse(this: any, ...args: any[]) {
   const result = originalUse.apply(this, args as any);
+
+  if (!hardened) {
+    hardened = true;
+    // Install immediately after the first application middleware. This preload runs
+    // before server.ts registers API routes, so the defense applies to every route.
+    originalUse.call(this, productionHardeningMiddleware);
+  }
+
   const path = typeof args[0] === 'string' ? args[0] : null;
   if (!mounted && path === '/api') {
     const candidate = args[1];
