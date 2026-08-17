@@ -15,6 +15,7 @@ concurrency:
 
 env:
   CI_RELEASE_GATE: "1"
+  DATABASE_URL: "postgres://spr-ci:invalid@127.0.0.1:5432/spr_ci"
 
 jobs:
   security:
