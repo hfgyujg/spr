@@ -27,7 +27,9 @@ COPY --from=builder --chown=10001:10001 /app/node_modules ./node_modules
 COPY --from=builder --chown=10001:10001 /app/dist ./dist
 COPY --from=builder --chown=10001:10001 /app/migrations ./migrations
 COPY --from=builder --chown=10001:10001 /app/index.html ./index.html
-COPY --from=builder --chown=10001:10001 /app/scripts/railway-health-proxy.cjs ./railway-health-proxy.cjs
+
+# Defense in depth: fail the image build if credential/config artifacts enter the image.
+RUN ! find /app -type f \( -name 'firebase-applet-config.json' -o -name '.env' -o -name '*.pem' -o -name '*.key' -o -name 'secret*.json' \) -print -quit | grep -q .
 
 EXPOSE 8080
 USER 10001:10001
