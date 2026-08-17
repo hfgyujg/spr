@@ -3,21 +3,15 @@
  * SPDX-License-Identifier: Apache-2.0
  *
  * Spawns the actual server (tsx server.ts) and hits it over real HTTP.
- * Requires a configured database (DATABASE_URL or the SQL_* connection
- * variables). Authenticated tests remain gated behind FIREBASE_TEST_TOKEN.
+ * The server is intentionally started even when no database is configured so
+ * the health/auth/security integration checks cannot silently disappear.
+ * Authenticated tests remain gated behind FIREBASE_TEST_TOKEN.
  */
 
 import 'dotenv/config';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { spawn, ChildProcess } from 'child_process';
 
-const hasDb = !!(
-  process.env.DATABASE_URL ||
-  (process.env.SQL_HOST &&
-    process.env.SQL_USER &&
-    process.env.SQL_PASSWORD &&
-    process.env.SQL_DB_NAME)
-);
 const hasAuthToken = !!process.env.FIREBASE_TEST_TOKEN;
 const TEST_PORT = process.env.TEST_PORT || '4173';
 const BASE_URL = `http://127.0.0.1:${TEST_PORT}`;
@@ -38,7 +32,7 @@ async function waitForServer(url: string, timeoutMs = 15000): Promise<void> {
   throw new Error(`Server did not become healthy at ${url} within ${timeoutMs}ms`);
 }
 
-describe.skipIf(!hasDb)('live server integration', () => {
+describe('live server integration', () => {
   beforeAll(async () => {
     serverProcess = spawn(process.execPath, ['node_modules/tsx/dist/cli.mjs', 'server.ts'], {
       env: { ...process.env, PORT: TEST_PORT, NODE_ENV: 'test' },
