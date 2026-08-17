@@ -18,3 +18,4 @@ restartPolicyMaxRetries = 3
 # FIREBASE_SERVICE_ACCOUNT_KEY must remain a Railway secret.
 # REDIS_URL is required for the shared production rate limiter.
 # Migrations run separately via PROCESS_ROLE=migrate / Railway CLI.
+# Release trigger: production configuration validated after the 2026-08-17 audit.
