@@ -1,6 +1,8 @@
 -- MSP audit-chain integrity hardening.
 -- The audit chain is append-only and serialized per tenant.
 
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 CREATE OR REPLACE FUNCTION msp_audit_current_hash(
   p_tenant text,
   p_actor text,
@@ -30,7 +32,6 @@ $$ LANGUAGE plpgsql IMMUTABLE;
 CREATE OR REPLACE FUNCTION msp_audit_chain_guard() RETURNS trigger AS $$
 DECLARE
   previous_row audit_trail%ROWTYPE;
-  expected_hash text;
 BEGIN
   IF TG_OP <> 'INSERT' THEN
     RAISE EXCEPTION 'IMMUTABLE_AUDIT_RECORD';
@@ -54,7 +55,9 @@ BEGIN
     END IF;
   END IF;
 
-  expected_hash := msp_audit_current_hash(
+  -- The database is the final source of truth for the chain hash. The application
+  -- may supply any placeholder current_hash; it is overwritten before persistence.
+  NEW.current_hash := msp_audit_current_hash(
     NEW.tenant_id,
     NEW.actor,
     NEW.action,
@@ -62,10 +65,6 @@ BEGIN
     NEW.payload,
     NEW.previous_hash
   );
-
-  IF NEW.current_hash <> expected_hash THEN
-    RAISE EXCEPTION 'AUDIT_CHAIN_CURRENT_HASH_MISMATCH';
-  END IF;
 
   RETURN NEW;
 END;
@@ -80,4 +79,4 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_audit_tenant_timestamp_hash
   ON audit_trail (tenant_id, timestamp, current_hash);
 
 COMMENT ON TRIGGER trg_msp_audit_chain_guard ON audit_trail IS
-  'Append-only, tenant-serialized, cryptographically chained audit records';
+  'Append-only, tenant-serialized, database-derived cryptographic audit chain';
