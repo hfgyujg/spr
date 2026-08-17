@@ -140,7 +140,6 @@ export function createSharedRateLimitStoreFromEnv(): RateLimitStore {
   client.on?.('ready', () => console.info('[RateLimiter] Redis client ready'));
   void client.connect().catch((err: Error) => console.error('[RateLimiter] Redis startup connection failed; requests will fail closed until Redis recovers:', err?.message || err));
 
-  // Production is always fail-closed. The safe constructor default is false.
   return new RedisStore(createAtomicRateLimitClient('ioredis', client), client);
 }
 
@@ -163,7 +162,7 @@ export const rateLimiter = async (req: Request, res: Response, next: NextFunctio
     res.setHeader('X-RateLimit-Remaining', String(remaining));
     res.setHeader('X-RateLimit-Reset', String(Math.ceil(counter.resetAt / 1000)));
     if (counter.count > maxRequestsPerWindow) {
-      res.setHeader('Retry-After', String(Math.max(1, Math.ceil((counter.resetAt - Date.now()) / 1000))));
+      res.setHeader('Retry-After', String(Math.max(1, Math.ceil((counter.resetAt - Date.now()) / 1000)));
       return res.status(429).json({ error: 'Too Many Requests' });
     }
     return next();
