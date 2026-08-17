@@ -36,7 +36,6 @@ export default function MSPDigitalTrustConsole() {
       : active === 'services' ? '/api/msp/services'
       : active === 'clients' ? '/api/msp/clients'
       : active === 'policies' ? '/api/msp/policies'
-      : active === 'reports' ? '/api/msp/reports/current'
       : null;
     if (!endpoint) { setData(null); setError(null); return; }
     let cancelled = false;
