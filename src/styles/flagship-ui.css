@@ -1,0 +1,25 @@
+/* SPR Flagship Glass UI — premium command-center layer */
+.spr-flagship-sidebar{background:linear-gradient(160deg,rgba(5,10,24,.97),rgba(8,16,35,.94) 55%,rgba(9,9,25,.98));border-right:1px solid rgba(148,163,184,.12);box-shadow:18px 0 60px rgba(2,6,23,.28),inset -1px 0 rgba(255,255,255,.03);color:#dbeafe}
+.spr-sidebar-grid{position:absolute;inset:0;opacity:.12;background-image:linear-gradient(rgba(125,211,252,.12) 1px,transparent 1px),linear-gradient(90deg,rgba(125,211,252,.12) 1px,transparent 1px);background-size:28px 28px;mask-image:linear-gradient(to bottom,black,transparent 85%);pointer-events:none}
+.spr-sidebar-orb{position:absolute;width:230px;height:230px;border-radius:999px;filter:blur(55px);opacity:.18;pointer-events:none;animation:sprOrbFloat 8s ease-in-out infinite}
+.spr-orb-a{background:#4f46e5;top:-90px;right:-100px}.spr-orb-b{background:#06b6d4;bottom:90px;left:-150px;animation-delay:-4s}
+.spr-logo-halo{filter:drop-shadow(0 0 18px rgba(99,102,241,.18))}.spr-glass-control{background:linear-gradient(135deg,rgba(255,255,255,.085),rgba(255,255,255,.035));box-shadow:inset 0 1px rgba(255,255,255,.08),0 12px 30px rgba(0,0,0,.16);backdrop-filter:blur(18px)}
+.spr-glass-control:hover{border-color:rgba(125,211,252,.3);background:linear-gradient(135deg,rgba(255,255,255,.11),rgba(255,255,255,.045))}
+.spr-glass-menu{background:rgba(7,14,30,.96);border:1px solid rgba(148,163,184,.16);box-shadow:0 30px 70px rgba(0,0,0,.45),inset 0 1px rgba(255,255,255,.05);backdrop-filter:blur(22px)}
+.spr-nav-item{color:#7f8da6;transition:all .2s cubic-bezier(.16,1,.3,1);border:1px solid transparent;position:relative;overflow:hidden}.spr-nav-item:hover{color:#e2e8f0;background:rgba(255,255,255,.045);border-color:rgba(148,163,184,.08);transform:translateX(2px)}
+.spr-nav-active{color:#fff!important;background:linear-gradient(110deg,rgba(79,70,229,.36),rgba(6,182,212,.13));border-color:rgba(129,140,248,.28);box-shadow:0 10px 28px rgba(49,46,129,.22),inset 0 1px rgba(255,255,255,.08)}
+.spr-nav-active:before{content:"";position:absolute;left:0;top:22%;bottom:22%;width:3px;border-radius:0 6px 6px 0;background:linear-gradient(#67e8f9,#818cf8);box-shadow:0 0 14px rgba(103,232,249,.8)}
+.spr-nav-active:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.055),transparent);transform:translateX(-120%);animation:sprNavSweep 4.5s ease-in-out infinite}
+.spr-trust-footer{background:linear-gradient(135deg,rgba(255,255,255,.07),rgba(255,255,255,.025));border:1px solid rgba(148,163,184,.13);box-shadow:inset 0 1px rgba(255,255,255,.06),0 15px 35px rgba(0,0,0,.2);backdrop-filter:blur(18px)}
+.spr-live-dot{animation:sprPulse 1.7s ease-in-out infinite}.spr-zap{animation:sprGlow 2.2s ease-in-out infinite}
+@keyframes sprPulse{0%,100%{opacity:.55;transform:scale(.85);filter:drop-shadow(0 0 2px #34d399)}50%{opacity:1;transform:scale(1.15);filter:drop-shadow(0 0 8px #34d399)}}
+@keyframes sprGlow{0%,100%{opacity:.55;transform:rotate(0deg) scale(1)}50%{opacity:1;transform:rotate(8deg) scale(1.12);filter:drop-shadow(0 0 8px rgba(34,211,238,.7))}}
+@keyframes sprOrbFloat{0%,100%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(18px,16px,0) scale(1.08)}}
+@keyframes sprNavSweep{0%,70%,100%{transform:translateX(-120%)}82%{transform:translateX(120%)}}
+
+/* Premiumize the existing application surface without changing its information architecture. */
+#viewport-stage-container{background:radial-gradient(circle at 80% 0%,rgba(99,102,241,.09),transparent 30rem),radial-gradient(circle at 20% 100%,rgba(6,182,212,.055),transparent 28rem),var(--bg-primary)!important}
+#viewport-stage-container .bg-white{background:linear-gradient(145deg,rgba(255,255,255,.92),rgba(248,250,252,.78));backdrop-filter:blur(16px)}
+.dark #viewport-stage-container .bg-white{background:linear-gradient(145deg,rgba(15,23,42,.84),rgba(9,15,29,.76))}
+#viewport-stage-container .rounded-xl,#viewport-stage-container .rounded-2xl{box-shadow:0 10px 35px rgba(15,23,42,.045),inset 0 1px rgba(255,255,255,.55)}
+.dark #viewport-stage-container .rounded-xl,.dark #viewport-stage-container .rounded-2xl{box-shadow:0 18px 45px rgba(0,0,0,.24),inset 0 1px rgba(255,255,255,.035)}
