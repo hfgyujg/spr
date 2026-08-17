@@ -1,17 +1,40 @@
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
+/**
+ * Converts App.tsx's large feature-view imports into React.lazy imports.
+ * This keeps the existing component API intact while preventing every
+ * dashboard view from being downloaded in the initial browser chunk.
+ */
+function lazyAppViews(): Plugin {
+  const componentImport = /^import\s+([A-Za-z_$][\w$]*)\s+from\s+['"](\.\/components\/[^'"]+)['"];?$/gm;
+
+  return {
+    name: 'spr-lazy-app-views',
+    enforce: 'pre',
+    transform(code, id) {
+      if (!id.replace(/\\/g, '/').endsWith('/src/App.tsx')) return null;
+
+      const transformed = code.replace(
+        componentImport,
+        (_match, name: string, modulePath: string) =>
+          `const ${name} = React.lazy(() => import('${modulePath}'));`,
+      );
+
+      return transformed === code ? null : { code: transformed, map: null };
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [lazyAppViews(), react(), tailwindcss()],
   build: {
-    // Keep the production build warning-free while preserving real code splitting.
     chunkSizeWarningLimit: 500,
     rollupOptions: {
       output: {
         manualChunks(id) {
           if (!id.includes('node_modules')) {
-            // Keep the application's large feature views out of the main entry chunk.
             if (id.includes('/src/components/')) {
               const match = id.match(/\/src\/components\/([^/]+)\.tsx?$/);
               if (match) return `view-${match[1].replace(/View$/, '').toLowerCase()}`;
