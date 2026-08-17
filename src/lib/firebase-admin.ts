@@ -11,7 +11,7 @@ function loadAdminCredential() {
   if (config.firebase.serviceAccountKey) {
     try {
       const payload = JSON.parse(config.firebase.serviceAccountKey) as ServiceAccount;
-      if (!payload.project_id || !payload.client_email || !payload.private_key) {
+      if (!payload.projectId || !payload.clientEmail || !payload.privateKey) {
         throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY is missing required service-account fields.');
       }
       return cert(payload);
