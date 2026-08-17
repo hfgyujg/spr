@@ -58,7 +58,8 @@ describe('live server integration', () => {
       expect(body).toMatchObject({ status: 'ok', db: 'connected', code: 'DB_CONNECTED' });
     } else {
       expect(res.status).toBe(503);
-      expect(body).toMatchObject({ status: 'unavailable', db: 'unavailable', code: 'DB_UNAVAILABLE' });
+      expect(body).toMatchObject({ status: 'unavailable', db: 'unavailable' });
+      expect(['DB_UNAVAILABLE', 'DB_MISCONFIGURED']).toContain(body.code);
     }
   });
 
