@@ -39,7 +39,22 @@ const normalizeOptionalUrl = (value: unknown): unknown => {
   }
 };
 
+const normalizeOptionalDatabaseUrl = (value: unknown): unknown => {
+  if (typeof value !== 'string') return value;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  try {
+    const parsed = new URL(trimmed);
+    if (!['postgres:', 'postgresql:'].includes(parsed.protocol)) return undefined;
+    if (!parsed.hostname) return undefined;
+    return trimmed;
+  } catch {
+    return undefined;
+  }
+};
+
 const optionalNormalizedUrl = z.preprocess(normalizeOptionalUrl, z.string().url().optional());
+const optionalDatabaseUrl = z.preprocess(normalizeOptionalDatabaseUrl, z.string().optional());
 const optionalTrimmedUrl = optionalNormalizedUrl;
 const booleanString = z.union([z.literal('true'), z.literal('false'), z.literal('1'), z.literal('0')]);
 const optionalBooleanString = z.optional(booleanString);
@@ -57,7 +72,7 @@ const envSchema = z.object({
   SQL_USER: optionalTrimmedString,
   SQL_PASSWORD: optionalTrimmedString,
   SQL_DB_NAME: optionalTrimmedString,
-  DATABASE_URL: optionalTrimmedUrl,
+  DATABASE_URL: optionalDatabaseUrl,
   SQL_SSL: z.preprocess((value) => {
     if (typeof value === 'string') {
       const trimmed = value.trim();
