@@ -10,7 +10,12 @@ import { config } from '../config.ts';
 function loadAdminCredential() {
   if (config.firebase.serviceAccountKey) {
     try {
-      const payload = JSON.parse(config.firebase.serviceAccountKey) as ServiceAccount;
+      const raw = JSON.parse(config.firebase.serviceAccountKey) as Record<string, unknown>;
+      const payload: ServiceAccount = {
+        projectId: String(raw.projectId ?? raw.project_id ?? ''),
+        clientEmail: String(raw.clientEmail ?? raw.client_email ?? ''),
+        privateKey: String(raw.privateKey ?? raw.private_key ?? '').replace(/\\n/g, '\n'),
+      };
       if (!payload.projectId || !payload.clientEmail || !payload.privateKey) {
         throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY is missing required service-account fields.');
       }
