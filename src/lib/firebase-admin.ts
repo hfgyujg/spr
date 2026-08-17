@@ -12,14 +12,24 @@ function loadAdminCredential() {
   if (config.firebase.serviceAccountKey) {
     try {
       const payload = JSON.parse(config.firebase.serviceAccountKey) as ServiceAccount;
+      if (!payload.project_id || !payload.client_email || !payload.private_key) {
+        throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY is missing required service-account fields.');
+      }
       return cert(payload);
     } catch (err) {
+      if (config.isProduction) {
+        throw new Error('Invalid FIREBASE_SERVICE_ACCOUNT_KEY configuration.');
+      }
       console.warn('[Firebase Admin] Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY:', err);
     }
   }
 
   if (config.firebase.googleApplicationCredentials) {
     return cert(config.firebase.googleApplicationCredentials);
+  }
+
+  if (config.isProduction) {
+    throw new Error('Firebase Admin credentials are required in production.');
   }
 
   return undefined;
@@ -29,11 +39,11 @@ const adminOptions: { projectId?: string; credential?: ReturnType<typeof cert> }
 const credential = loadAdminCredential();
 if (credential) {
   adminOptions.credential = credential;
-} else if (firebaseConfig?.projectId) {
+} else if (!config.isProduction && firebaseConfig?.projectId && firebaseConfig.projectId !== 'fake-project') {
   adminOptions.projectId = firebaseConfig.projectId;
 }
 
-const app = getApps().length === 0 
+const app = getApps().length === 0
   ? initializeApp(adminOptions)
   : getApp();
 
@@ -43,10 +53,14 @@ export const adminAuth = getAuth(app);
  * Sets custom claims on a Firebase user account for tenant isolation and RBAC.
  */
 export async function setUserCustomClaims(
-  uid: string, 
+  uid: string,
   claims: { workspaceId: string; role: string }
 ): Promise<{ success: boolean; reason?: string }> {
   try {
+    if (!uid || !claims.workspaceId || !claims.role) {
+      return { success: false, reason: 'Required Firebase claim assignment values are missing' };
+    }
+
     const expectedClaims = {
       workspaceId: claims.workspaceId,
       tenantId: claims.workspaceId,
@@ -66,11 +80,10 @@ export async function setUserCustomClaims(
     console.log(`[Firebase Admin] Set custom claims for user ${uid}: workspaceId=${claims.workspaceId}, role=${claims.role}`);
     return { success: true };
   } catch (err: any) {
-    const errorMsg = err?.message || String(err);
     console.error('[Firebase Admin Claims Assignment Failed]', {
       uid,
       code: err?.code || 'FIREBASE_CLAIMS_ERROR'
     });
-    return { success: false, reason: errorMsg };
+    return { success: false, reason: 'Firebase custom-claim assignment failed' };
   }
 }
