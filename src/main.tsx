@@ -2,6 +2,7 @@ import { StrictMode, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import LoginView from './components/LoginView';
+import './utils/auth-storage-hardening';
 import './index.css';
 import './login-premium.css';
 import './styles/spr-flagship-ui.css';
