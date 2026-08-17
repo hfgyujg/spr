@@ -53,7 +53,5 @@ ALTER TABLE msp_policy_versions
 CREATE UNIQUE INDEX IF NOT EXISTS idx_msp_changes_dedup
   ON msp_changes (tenant_id, entity_id, change_type, observed_at, what_changed);
 
--- Prevent duplicate evidence-to-claim relations from being replayed with a different relation label.
-CREATE INDEX IF NOT EXISTS idx_msp_claim_evidence_evidence
-  ON msp_claim_evidence (tenant_id, evidence_id)
-  WHERE false;
+-- Evidence/claim links are already uniquely constrained by (claim_id, evidence_id, relation)
+-- in migration 0009; retain that constraint as the replay boundary.
