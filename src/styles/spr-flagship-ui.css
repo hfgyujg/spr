@@ -1,0 +1,42 @@
+/* SPR Flagship UI — premium glass command center */
+:root{--spr-line:rgba(148,163,184,.14);--spr-line-hot:rgba(99,102,241,.38);--spr-text:#f8fafc;--spr-shadow:0 24px 80px rgba(0,0,0,.34)}
+body{background:#050814!important;color:var(--spr-text)!important;overflow-x:hidden}
+body:before,body:after{content:"";position:fixed;pointer-events:none;z-index:-1;border-radius:999px;filter:blur(70px);opacity:.24;animation:sprOrb 14s ease-in-out infinite alternate}
+body:before{width:420px;height:420px;right:-120px;top:-160px;background:#2563eb}
+body:after{width:360px;height:360px;left:12%;bottom:-220px;background:#7c3aed;animation-delay:-5s}
+@keyframes sprOrb{from{transform:translate3d(0,0,0) scale(1)}to{transform:translate3d(-35px,25px,0) scale(1.12)}}
+#software-passport-shell{background:transparent!important;color:var(--spr-text)!important}
+#viewport-stage-container{background:radial-gradient(circle at 50% -10%,rgba(37,99,235,.12),transparent 36rem),linear-gradient(rgba(148,163,184,.028) 1px,transparent 1px),linear-gradient(90deg,rgba(148,163,184,.028) 1px,transparent 1px)!important;background-size:auto,36px 36px!important}
+#spr-sovereign-sidebar-shell{background:rgba(5,9,20,.78)!important;border-right:1px solid var(--spr-line)!important;backdrop-filter:blur(24px) saturate(150%);box-shadow:18px 0 70px rgba(0,0,0,.24)!important}
+#spr-sovereign-sidebar-shell button{border:1px solid transparent!important;color:#94a3b8!important;border-radius:12px!important;margin:2px 8px!important}
+#spr-sovereign-sidebar-shell button:hover{background:rgba(99,102,241,.10)!important;color:#e2e8f0!important;border-color:rgba(99,102,241,.14)!important;box-shadow:0 8px 24px rgba(0,0,0,.14)}
+#spr-sovereign-sidebar-shell button[class*="bg-indigo"],#spr-sovereign-sidebar-shell button[class*="bg-blue"]{background:linear-gradient(135deg,rgba(37,99,235,.25),rgba(99,102,241,.18))!important;color:#fff!important;border-color:rgba(99,102,241,.28)!important;box-shadow:inset 0 1px rgba(255,255,255,.06),0 10px 30px rgba(37,99,235,.12)!important}
+#software-passport-shell header{background:rgba(5,9,20,.62)!important;border-bottom:1px solid var(--spr-line)!important;backdrop-filter:blur(22px) saturate(150%);box-shadow:0 12px 40px rgba(0,0,0,.12)}
+#viewport-stage-container .bg-white,#viewport-stage-container .studio-card,#viewport-stage-container .spr-card{background:linear-gradient(145deg,rgba(17,27,48,.78),rgba(8,14,28,.78))!important;border-color:var(--spr-line)!important;color:#e5edf9!important;box-shadow:var(--spr-shadow),inset 0 1px rgba(255,255,255,.035)!important;backdrop-filter:blur(18px) saturate(135%)}
+#viewport-stage-container .bg-white:hover,#viewport-stage-container .studio-card:hover,#viewport-stage-container .spr-card:hover{border-color:var(--spr-line-hot)!important;box-shadow:0 28px 90px rgba(0,0,0,.42),0 0 35px rgba(59,130,246,.06),inset 0 1px rgba(255,255,255,.05)!important}
+#viewport-stage-container h1{font-weight:800!important;color:#f8fafc!important;letter-spacing:-.045em!important}
+#viewport-stage-container h2,#viewport-stage-container h3,#viewport-stage-container h4{color:#eaf1fb!important}
+#viewport-stage-container p,#viewport-stage-container .text-slate-500,#viewport-stage-container .text-slate-400{color:#91a0b8!important}
+#viewport-stage-container .text-slate-800,#viewport-stage-container .text-slate-700,#viewport-stage-container .text-slate-600{color:#dbe5f3!important}
+#viewport-stage-container input,#viewport-stage-container select,#viewport-stage-container textarea{background:rgba(4,10,22,.72)!important;color:#f8fafc!important;border-color:rgba(148,163,184,.16)!important;border-radius:11px!important}
+#viewport-stage-container input:focus,#viewport-stage-container select:focus,#viewport-stage-container textarea:focus{border-color:rgba(96,165,250,.55)!important;box-shadow:0 0 0 3px rgba(59,130,246,.11),0 0 24px rgba(59,130,246,.08)!important;outline:none}
+#viewport-stage-container button[class*="bg-indigo-600"],#viewport-stage-container button[class*="bg-blue-600"]{background:linear-gradient(135deg,#2563eb,#6366f1)!important;border:1px solid rgba(147,197,253,.18)!important;color:#fff!important;box-shadow:0 10px 30px rgba(37,99,235,.22),inset 0 1px rgba(255,255,255,.12)!important}
+#viewport-stage-container button[class*="bg-indigo-600"]:hover,#viewport-stage-container button[class*="bg-blue-600"]:hover{filter:brightness(1.08);transform:translateY(-1px);box-shadow:0 15px 38px rgba(37,99,235,.30),inset 0 1px rgba(255,255,255,.15)!important}
+#viewport-stage-container table{border-color:var(--spr-line)!important;background:rgba(7,13,26,.36)!important;overflow:hidden;border-radius:14px}
+#viewport-stage-container thead{background:rgba(99,102,241,.06)!important}
+#viewport-stage-container th{color:#8190aa!important;border-color:var(--spr-line)!important}
+#viewport-stage-container td{border-color:rgba(148,163,184,.08)!important;color:#d7e1ef!important}
+#viewport-stage-container tbody tr:hover{background:rgba(59,130,246,.055)!important}
+#viewport-stage-container .text-emerald-600,#viewport-stage-container .text-green-600{color:#34d399!important}
+#viewport-stage-container .text-amber-600{color:#fbbf24!important}
+#viewport-stage-container .text-red-600{color:#fb7185!important}
+#viewport-stage-container [role="dialog"]{background:rgba(2,6,23,.58)!important;backdrop-filter:blur(18px)}
+#viewport-stage-container [role="dialog"]>div{background:linear-gradient(145deg,rgba(17,27,48,.96),rgba(7,13,26,.97))!important;border:1px solid rgba(99,102,241,.22)!important;box-shadow:0 40px 120px rgba(0,0,0,.65),inset 0 1px rgba(255,255,255,.04)!important}
+@keyframes sprPulse{0%,100%{opacity:.72;transform:scale(1)}50%{opacity:1;transform:scale(1.035)}}
+#viewport-stage-container .spr-badge-verified{animation:sprPulse 2.6s ease-in-out infinite;box-shadow:0 0 22px rgba(52,211,153,.12)}
+#viewport-stage-container svg{transition:filter .2s ease,transform .2s ease}
+#viewport-stage-container button:hover svg{filter:drop-shadow(0 0 6px rgba(96,165,250,.28))}
+*{scrollbar-width:thin;scrollbar-color:rgba(100,116,139,.35) transparent}
+*::-webkit-scrollbar{width:8px;height:8px}*::-webkit-scrollbar-track{background:transparent}*::-webkit-scrollbar-thumb{background:rgba(100,116,139,.28);border-radius:999px}*::-webkit-scrollbar-thumb:hover{background:rgba(96,165,250,.45)}
+@media(max-width:900px){#viewport-stage-container{background-size:auto,28px 28px!important}#spr-sovereign-sidebar-shell{backdrop-filter:blur(18px)}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}}
