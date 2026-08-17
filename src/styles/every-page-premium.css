@@ -1,0 +1,64 @@
+/* SPR — Every Page Premium System
+   Global visual layer for dashboard, clients, passports, security, compliance,
+   reports, assets, scans, alerts, Trust OS, marketplace, integrations, billing,
+   founder, settings, pilot and enterprise surfaces. */
+
+:root{--spr-glass:rgba(255,255,255,.72);--spr-glass-strong:rgba(255,255,255,.9);--spr-line:rgba(99,102,241,.14);--spr-glow:rgba(79,70,229,.16)}
+.dark{--spr-glass:rgba(10,18,34,.72);--spr-glass-strong:rgba(11,18,32,.92);--spr-line:rgba(99,102,241,.22);--spr-glow:rgba(79,70,229,.22)}
+
+/* Every page gets a premium stage. */
+#viewport-stage-container{position:relative;isolation:isolate;overflow-x:hidden}
+#viewport-stage-container:before{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;background:radial-gradient(700px 420px at 88% 0%,rgba(79,70,229,.11),transparent 68%),radial-gradient(620px 420px at 5% 90%,rgba(6,182,212,.07),transparent 68%)}
+#viewport-stage-container:after{content:"";position:absolute;inset:0;pointer-events:none;z-index:-1;opacity:.32;background-image:linear-gradient(rgba(99,102,241,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(99,102,241,.045) 1px,transparent 1px);background-size:36px 36px;mask-image:linear-gradient(to bottom,black,transparent 92%)}
+
+/* Normalize major content containers into a glass hierarchy. */
+#viewport-stage-container .bg-white,#viewport-stage-container .bg-slate-50,#viewport-stage-container .bg-slate-100{background:linear-gradient(145deg,var(--spr-glass-strong),var(--spr-glass))!important;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+.dark #viewport-stage-container .bg-white,.dark #viewport-stage-container .bg-slate-50,.dark #viewport-stage-container .bg-slate-100{background:linear-gradient(145deg,rgba(15,23,42,.88),rgba(8,15,29,.72))!important}
+
+#viewport-stage-container .rounded-xl,#viewport-stage-container .rounded-2xl{border-color:var(--spr-line);box-shadow:0 12px 38px rgba(15,23,42,.055),inset 0 1px rgba(255,255,255,.48);transition:box-shadow .22s ease,border-color .22s ease,transform .22s ease}
+#viewport-stage-container .rounded-xl:hover,#viewport-stage-container .rounded-2xl:hover{border-color:rgba(99,102,241,.24);box-shadow:0 20px 52px rgba(15,23,42,.09),0 0 30px var(--spr-glow),inset 0 1px rgba(255,255,255,.5)}
+.dark #viewport-stage-container .rounded-xl,.dark #viewport-stage-container .rounded-2xl{box-shadow:0 18px 48px rgba(0,0,0,.25),inset 0 1px rgba(255,255,255,.035)}
+.dark #viewport-stage-container .rounded-xl:hover,.dark #viewport-stage-container .rounded-2xl:hover{box-shadow:0 24px 65px rgba(0,0,0,.38),0 0 36px rgba(79,70,229,.1),inset 0 1px rgba(255,255,255,.045)}
+
+/* Page headings. */
+#viewport-stage-container h1{font-weight:800;letter-spacing:-.045em;text-wrap:balance;text-shadow:0 1px 0 rgba(255,255,255,.4)}
+.dark #viewport-stage-container h1{text-shadow:0 0 26px rgba(129,140,248,.08)}
+#viewport-stage-container h2{font-weight:800;letter-spacing:-.035em}
+#viewport-stage-container h3{font-weight:750;letter-spacing:-.025em}
+
+/* Inputs and controls across every page. */
+#viewport-stage-container input,#viewport-stage-container select,#viewport-stage-container textarea{background:color-mix(in srgb,var(--bg-secondary) 82%,transparent);border-color:var(--border-input);border-radius:.75rem;transition:border-color .18s ease,box-shadow .18s ease,background .18s ease}
+#viewport-stage-container input:focus,#viewport-stage-container select:focus,#viewport-stage-container textarea:focus{outline:none;border-color:rgba(99,102,241,.55);box-shadow:0 0 0 3px rgba(99,102,241,.12),0 6px 22px rgba(79,70,229,.08)}
+
+/* Buttons get consistent product-grade depth without changing their semantics. */
+#viewport-stage-container button{transition:transform .16s ease,box-shadow .18s ease,filter .18s ease,border-color .18s ease}
+#viewport-stage-container button:hover:not(:disabled){transform:translateY(-1px)}
+#viewport-stage-container button:active:not(:disabled){transform:translateY(0) scale(.985)}
+#viewport-stage-container button:focus-visible{outline:2px solid rgba(99,102,241,.65);outline-offset:2px}
+#viewport-stage-container button[class*="bg-indigo-6"],#viewport-stage-container button[class*="bg-blue-6"]{box-shadow:0 8px 24px rgba(79,70,229,.2)}
+#viewport-stage-container button[class*="bg-indigo-6"]:hover,#viewport-stage-container button[class*="bg-blue-6"]:hover{filter:brightness(1.06);box-shadow:0 12px 32px rgba(79,70,229,.28)}
+
+/* Tables become glass data surfaces. */
+#viewport-stage-container table{border-collapse:separate;border-spacing:0;overflow:hidden;border-radius:14px}
+#viewport-stage-container thead{background:linear-gradient(90deg,rgba(99,102,241,.07),rgba(6,182,212,.035))}
+#viewport-stage-container thead th{font-family:var(--font-mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--text-secondary)}
+#viewport-stage-container tbody tr{transition:background .16s ease,transform .16s ease}
+#viewport-stage-container tbody tr:hover{background:rgba(99,102,241,.045);transform:translateX(1px)}
+
+/* Status pills and metrics. */
+#viewport-stage-container [class*="bg-emerald-50"],#viewport-stage-container [class*="bg-green-50"]{box-shadow:0 0 20px rgba(16,185,129,.07)}
+#viewport-stage-container [class*="bg-red-50"]{box-shadow:0 0 20px rgba(239,68,68,.07)}
+#viewport-stage-container [class*="bg-amber-50"],#viewport-stage-container [class*="bg-yellow-50"]{box-shadow:0 0 20px rgba(245,158,11,.07)}
+
+/* Dialogs, drawers and overlays. */
+#viewport-stage-container [role="dialog"]{backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+.fixed.inset-0{backdrop-filter:blur(7px)}
+
+/* Loading / live elements. */
+@keyframes sprLiveShimmer{0%{background-position:-220% 0}100%{background-position:220% 0}}
+.spr-live-surface{background:linear-gradient(110deg,rgba(255,255,255,.03) 35%,rgba(129,140,248,.12) 50%,rgba(255,255,255,.03) 65%);background-size:220% 100%;animation:sprLiveShimmer 4.5s ease-in-out infinite}
+
+/* Mobile: preserve hierarchy and touch targets. */
+@media(max-width:768px){#viewport-stage-container{padding:1rem!important}#viewport-stage-container .grid{gap:12px}#viewport-stage-container button{min-height:38px}#viewport-stage-container h1{font-size:1.35rem}}
+
+@media(prefers-reduced-motion:reduce){#viewport-stage-container *,.spr-live-surface{animation:none!important;transition:none!important}}
