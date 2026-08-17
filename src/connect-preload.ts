@@ -3,6 +3,7 @@ import { createConnectRouter } from './routes/connect.ts';
 import { createPublicConnectRouter } from './routes/public-connect.ts';
 import { createMspDigitalTrustRouter } from './routes/msp-digital-trust.ts';
 import { createMspConsoleReadRouter } from './routes/msp-console-read.ts';
+import { createMspGraphWriteRouter } from './routes/msp-graph-write.ts';
 import { productionHardeningMiddleware } from './middleware/production-hardening.ts';
 
 const originalUse = express.application.use;
@@ -26,6 +27,7 @@ express.application.use = function patchedUse(this: any, ...args: any[]) {
     if (looksLikeRouter) {
       mounted = true;
       this.use('/api/msp', createMspConsoleReadRouter());
+      this.use('/api/msp', createMspGraphWriteRouter());
       this.use('/api/msp', createMspDigitalTrustRouter());
       this.use('/api', createPublicConnectRouter());
       this.use('/api', createConnectRouter());
