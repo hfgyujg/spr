@@ -1,0 +1,104 @@
+name: SPR Production Hardening
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '17 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hardening-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI_RELEASE_GATE: '1'
+
+jobs:
+  hardening:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Refuse tracked environment files
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git ls-files | grep -E '(^|/)\.env(\.|$)' | grep -vE '(^|/)\.env\.example$'; then
+            echo 'ERROR: tracked environment file detected.'
+            exit 1
+          fi
+
+      - name: Scan tracked source for high-risk credential patterns
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=$(git ls-files '*.js' '*.jsx' '*.ts' '*.tsx' '*.json' '*.yml' '*.yaml' '*.md' '*.env*' '*.pem' '*.key' '*.crt' '*.conf' '*.txt')
+          if [ -z "$files" ]; then exit 0; fi
+          if grep -nE --binary-files=without-match \
+            -e '-----BEGIN (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----' \
+            -e 'AIza[0-9A-Za-z_-]{20,}' \
+            -e 'sk_(live|test)_[0-9A-Za-z]{16,}' \
+            -e 'whsec_[0-9A-Za-z]{16,}' \
+            -e 'gh[pousr]_[A-Za-z0-9_]{20,}' \
+            -e 'AKIA[0-9A-Z]{16}' \
+            -e '"private_key"[[:space:]]*:[[:space:]]*"-----BEGIN' \
+            $files; then
+            echo 'ERROR: possible credential material found in tracked files.'
+            exit 1
+          fi
+
+      - name: Verify lockfile integrity
+        run: npm ci --ignore-scripts
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Audit all dependencies
+        run: npm audit --audit-level=high
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test suite
+        run: npm test -- --run
+
+      - name: Production build
+        run: npm run build
+
+      - name: Verify expected production artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d dist
+          test -f dist/server.cjs
+          test -f dist/worker.cjs
+          test -f dist/connect-preload.cjs
+          test -f dist/bootstrap-initial-owner.cjs
+
+      - name: Verify no source maps or environment files were emitted
+        shell: bash
+        run: |
+          set -euo pipefail
+          if find dist -type f \( -name '*.env' -o -name '.env*' -o -name '*.pem' -o -name '*.key' \) -print -quit | grep -q .; then
+            echo 'ERROR: credential/environment artifact emitted into dist.'
+            exit 1
+          fi
+
+      - name: Release gate marker
+        run: test "$CI_RELEASE_GATE" = '1'
