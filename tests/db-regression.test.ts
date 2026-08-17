@@ -1,4 +1,4 @@
-﻿import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('DATABASE_URL regression tests', () => {
   const originalEnv = { ...process.env };
@@ -6,6 +6,7 @@ describe('DATABASE_URL regression tests', () => {
   beforeEach(() => {
     vi.resetModules();
     process.env = { ...originalEnv };
+    delete process.env.DATABASE_URL;
     process.env.SKIP_DOTENV = 'true';
   });
 
