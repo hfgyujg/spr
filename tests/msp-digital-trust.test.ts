@@ -44,6 +44,7 @@ describe('MSP digital trust deterministic engines', () => {
 
   it('does not claim AI approval without required evidence', () => {
     expect(evaluateAiDecision({ identity: true, provenance: true, permissionsKnown: true, sensitiveDataAccessKnown: true, monitoringKnown: true, evidenceAvailable: false }).decision).toBe('REVIEW');
+    expect(evaluateAiDecision({ identity: true, provenance: true, permissionsKnown: true, sensitiveDataAccessKnown: true, monitoringKnown: true, evidenceAvailable: true }).decision).toBe('APPROVE');
     expect(evaluateAiDecision({}).decision).toBe('UNKNOWN');
   });
 
@@ -63,6 +64,10 @@ describe('MSP digital trust deterministic engines', () => {
     expect(validateExternalUrl('http://example.com').ok).toBe(false);
     expect(validateExternalUrl('https://127.0.0.1/internal').ok).toBe(false);
     expect(validateExternalUrl('https://10.0.0.1').ok).toBe(false);
+    expect(validateExternalUrl('https://[::1]/internal').ok).toBe(false);
+    expect(validateExternalUrl('https://[fd00::1]/internal').ok).toBe(false);
+    expect(validateExternalUrl('https://user:pass@example.com').ok).toBe(false);
+    expect(validateExternalUrl('https://metadata.google.internal').ok).toBe(false);
     expect(validateExternalUrl('https://example.com/path').ok).toBe(true);
   });
 
