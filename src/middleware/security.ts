@@ -93,7 +93,7 @@ export class RedisStore implements RateLimitStore {
       if (!Number.isFinite(ttl) || ttl <= 0) throw new Error('Unexpected redis eval response');
       return { count, resetAt: now + ttl };
     } catch (err) {
-      if (this.failOpen) return new InMemoryStore().incr(key, windowMs, limit);
+      if (this.failOpen) return new InMemoryStore().incr(key, windowMs);
       throw err;
     }
   }
