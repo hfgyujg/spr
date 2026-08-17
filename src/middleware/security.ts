@@ -173,11 +173,25 @@ export const rateLimiter = async (req: Request, res: Response, next: NextFunctio
   }
 };
 
+function isObviouslyInvalidBearerToken(token: string): boolean {
+  const parts = token.split('.');
+  if (parts.length !== 3 || parts.some((part) => part.length === 0)) return true;
+  try {
+    const header = JSON.parse(Buffer.from(parts[0], 'base64url').toString('utf8')) as { alg?: unknown; typ?: unknown };
+    if (header.alg === 'none') return true;
+    if (header.typ !== undefined && typeof header.typ !== 'string') return true;
+  } catch {
+    return true;
+  }
+  return false;
+}
+
 export const requireAuth = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   let token = '';
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) token = authHeader.split('Bearer ')[1];
   if (!token) return res.status(401).json({ error: 'Unauthorized: Missing or invalid authorization token' });
+  if (isObviouslyInvalidBearerToken(token)) return res.status(401).json({ error: 'Unauthorized: Invalid or expired security token' });
 
   try {
     let decodedToken: any;
