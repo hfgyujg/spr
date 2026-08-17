@@ -111,16 +111,16 @@ export function evaluateAiDecision(input: {
 }): { decision: AiDecision; reasons: string[] } {
   const reasons: string[] = [];
   if (input.criticalRisk === true) reasons.push('critical_risk_observed');
-  if (input.permissionsKnown === false || input.sensitiveDataAccessKnown === false) reasons.push('permissions_or_data_access_unknown');
+  if (input.permissionsKnown === false || input.sensitiveDataAccessKnown === false) reasons.push('permissions_or_data_access_not_acceptable');
   if (input.provenance === false || input.identity === false) reasons.push('identity_or_provenance_unverified');
   if (input.monitoringKnown === false) reasons.push('monitoring_not_observed');
   if (input.humanApprovalKnown === false) reasons.push('human_approval_not_observed');
   if (input.evidenceAvailable === false) reasons.push('required_evidence_unavailable');
   if (input.criticalRisk === true) return { decision: 'BLOCK', reasons };
-  if (reasons.some(r => r === 'identity_or_provenance_unverified')) return { decision: 'RESTRICT', reasons };
+  if (reasons.includes('identity_or_provenance_unverified')) return { decision: 'RESTRICT', reasons };
   if (reasons.length) return { decision: 'REVIEW', reasons };
   const required = [input.identity, input.provenance, input.permissionsKnown, input.sensitiveDataAccessKnown, input.monitoringKnown, input.evidenceAvailable];
-  if (required.some(v => v === undefined || v === null)) return { decision: 'UNKNOWN', reasons: ['required_ai_trust_fields_unknown'] };
+  if (required.some(v => v !== true)) return { decision: 'UNKNOWN', reasons: ['required_ai_trust_fields_not_fully_verified'] };
   return { decision: 'APPROVE', reasons: [] };
 }
 
@@ -181,18 +181,29 @@ export function calculateRoi(input: {
   return { status, minutesSaved, hoursSaved, laborSavings, capacityCreated, revenueGenerated, netBenefit, roiPercent };
 }
 
+function isPrivateIpv4(host: string) {
+  const match = host.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+  if (!match) return false;
+  const [a,b,c,d] = match.slice(1).map(Number);
+  if ([a,b,c,d].some(n => n < 0 || n > 255)) return true;
+  return a === 0 || a === 10 || a === 127 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 169 && b === 254);
+}
+
+function isBlockedIpv6(host: string) {
+  const h = host.replace(/^\[/, '').replace(/\]$/, '').toLowerCase();
+  if (!h.includes(':')) return false;
+  if (h === '::1' || h === '::' || h.startsWith('fe80:') || h.startsWith('fc') || h.startsWith('fd')) return true;
+  return false;
+}
+
 export function validateExternalUrl(raw: string): { ok: boolean; reason?: string; url?: URL } {
   let url: URL;
   try { url = new URL(raw); } catch { return { ok: false, reason: 'invalid_url' }; }
   if (url.protocol !== 'https:') return { ok: false, reason: 'https_required' };
+  if (url.username || url.password) return { ok: false, reason: 'credentials_in_url_blocked' };
   const host = url.hostname.toLowerCase();
-  if (host === 'localhost' || host.endsWith('.localhost') || host === '0.0.0.0' || host === '::1') return { ok: false, reason: 'local_host_blocked' };
-  const ipv4 = host.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
-  if (ipv4) {
-    const [a,b,c,d] = ipv4.slice(1).map(Number);
-    const privateRange = a === 10 || a === 127 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 169 && b === 254) || (a === 0);
-    if (privateRange || [a,b,c,d].some(n => n < 0 || n > 255)) return { ok: false, reason: 'private_or_invalid_ip' };
-  }
+  if (!host || host === 'localhost' || host.endsWith('.localhost') || host === '0.0.0.0' || host.endsWith('.local') || host === 'metadata.google.internal') return { ok: false, reason: 'local_host_blocked' };
+  if (isPrivateIpv4(host) || isBlockedIpv6(host)) return { ok: false, reason: 'private_or_invalid_ip' };
   url.username = '';
   url.password = '';
   return { ok: true, url };
