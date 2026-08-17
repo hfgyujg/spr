@@ -7,8 +7,7 @@ import { passports, trustObservations, trustObservationChanges, evidenceItems } 
 import { requireAuth, requireRole, rateLimiter, AuthenticatedRequest } from '../middleware/security.ts';
 import {
   calculateClientImpact, calculateRoi, detectEvidenceConflict, evaluateAiDecision,
-  evaluatePolicy, freshness, mapResponsibility, sha256,
-  validateExternalUrl, sanitizeExternalEvidence,
+  evaluatePolicy, freshness, mapResponsibility, validateExternalUrl,
 } from '../utils/msp-digital-trust.ts';
 import { verifyEvidenceIntegrity } from '../utils/evidence-integrity.ts';
 
@@ -54,12 +53,6 @@ function parse(schema: z.ZodTypeAny, body: unknown, res: any) {
   return result.data;
 }
 
-function requestId(res: any) {
-  const id = crypto.randomUUID();
-  res.setHeader('x-request-id', id);
-  return id;
-}
-
 function safeJson<T>(value: unknown, fallback: T): T {
   if (typeof value !== 'string') return fallback;
   try { return JSON.parse(value) as T; } catch { return fallback; }
@@ -70,9 +63,14 @@ async function ownedPassport(tenantId: string, passportId: string) {
     .from(passports).where(and(eq(passports.id, passportId), eq(passports.tenantId, tenantId))).then(r => r[0] || null);
 }
 
+async function findEntity(tenantId: string, type: string, externalId: string) {
+  return db.execute(sql`SELECT id, entity_type, external_id, name, created_at FROM msp_entities WHERE tenant_id=${tenantId} AND entity_type=${type} AND external_id=${externalId} LIMIT 1`)
+    .then(result => result.rows[0] ?? null);
+}
+
 async function ensureEntity(tenantId: string, type: string, externalId: string, name: string) {
   const entityId = `msp-entity-${crypto.createHash('sha256').update(`${tenantId}:${type}:${externalId}`).digest('hex').slice(0, 32)}`;
-  await db.execute(sql`INSERT INTO msp_entities (id, tenant_id, entity_type, external_id, name) VALUES (${entityId}, ${tenantId}, ${type}, ${externalId}, ${name}) ON CONFLICT (tenant_id, entity_type, external_id) DO UPDATE SET name = EXCLUDED.name`);
+  await db.execute(sql`INSERT INTO msp_entities (id, tenant_id, entity_type, external_id, name) VALUES (${entityId}, ${tenantId}, ${type}, ${externalId}, ${name}) ON CONFLICT (tenant_id, entity_type, external_id) DO NOTHING`);
   return entityId;
 }
 
@@ -80,10 +78,10 @@ async function audit(tenantId: string, actor: string, action: string, payload: R
   const now = new Date().toISOString();
   const previous = await db.execute(sql`SELECT current_hash FROM audit_trail WHERE tenant_id=${tenantId} ORDER BY id DESC LIMIT 1`);
   const previousHash = previous.rows.length ? String((previous.rows[0] as any).current_hash) : 'GENESIS';
-  const currentHash = sha256({ tenantId, actor, action, payload, now, previousHash });
   await db.execute(sql`INSERT INTO audit_trail (tenant_id, action, timestamp, actor, payload, previous_hash, current_hash)
-    VALUES (${tenantId}, ${`MSP_${action}`}, ${now}, ${actor}, ${JSON.stringify(payload)}, ${previousHash}, ${currentHash})`);
-  return currentHash;
+    VALUES (${tenantId}, ${`MSP_${action}`}, ${now}, ${actor}, ${JSON.stringify(payload)}, ${previousHash}, 'pending')`);
+  const inserted = await db.execute(sql`SELECT current_hash FROM audit_trail WHERE tenant_id=${tenantId} AND action=${`MSP_${action}`} AND actor=${actor} AND timestamp=${now} ORDER BY id DESC LIMIT 1`);
+  return inserted.rows.length ? String((inserted.rows[0] as any).current_hash) : null;
 }
 
 export function createMspDigitalTrustRouter() {
@@ -97,13 +95,13 @@ export function createMspDigitalTrustRouter() {
     if (!id.success) return res.status(400).json({ error: 'INVALID_ID' });
     const passport = await ownedPassport(req.user!.tenantId, id.data);
     if (!passport) return res.status(404).json({ error: 'PASSPORT_NOT_FOUND' });
-    const entityId = await ensureEntity(req.user!.tenantId, 'PASSPORT', passport.id, passport.name);
+    const entity = await findEntity(req.user!.tenantId, 'PASSPORT', passport.id);
     const [observation] = await db.select().from(trustObservations).where(and(eq(trustObservations.tenantId, req.user!.tenantId), eq(trustObservations.passportId, passport.id))).orderBy(desc(trustObservations.observationVersion)).limit(1);
     const evidenceIds = safeJson<string[]>(observation?.evidenceIds, []);
     const state = observation
       ? (observation.unknownDimensionCount > 0 ? 'UNKNOWN' : observation.expiredDimensionCount > 0 ? 'EXPIRED' : observation.staleDimensionCount > 0 ? 'STALE' : 'VERIFIED')
       : 'UNKNOWN';
-    res.json({ entity: { id: entityId, type: 'PASSPORT', passportId: passport.id }, trustState: state, evidenceFreshness: observation ? { generatedAt: observation.generatedAt, staleDimensions: observation.staleDimensionCount, expiredDimensions: observation.expiredDimensionCount } : { state: 'UNKNOWN' }, confidence: observation ? observation.completeness / 10000 : null, timestamp: observation?.generatedAt ?? null, passport: { id: passport.id, version: passport.version }, decision: state === 'VERIFIED' ? 'REVIEW' : 'UNKNOWN', evidenceReferences: evidenceIds, observationId: observation?.id ?? null });
+    res.json({ entity: entity ? { id: entity.id, type: 'PASSPORT', passportId: passport.id } : { id: null, type: 'PASSPORT', passportId: passport.id }, trustState: state, evidenceFreshness: observation ? { generatedAt: observation.generatedAt, staleDimensions: observation.staleDimensionCount, expiredDimensions: observation.expiredDimensionCount } : { state: 'UNKNOWN' }, confidence: observation ? observation.completeness / 10000 : null, timestamp: observation?.generatedAt ?? null, passport: { id: passport.id, version: passport.version }, decision: state === 'VERIFIED' ? 'REVIEW' : 'UNKNOWN', evidenceReferences: evidenceIds, observationId: observation?.id ?? null });
   });
 
   router.get('/trust-state/:id', async (req: AuthenticatedRequest, res) => {
@@ -151,7 +149,9 @@ export function createMspDigitalTrustRouter() {
     if (!passportId.success) return res.status(400).json({ error: 'INVALID_ID' });
     const passport = await ownedPassport(req.user!.tenantId, passportId.data);
     if (!passport) return res.status(404).json({ error: 'PASSPORT_NOT_FOUND' });
-    const entityId = await ensureEntity(req.user!.tenantId, 'PASSPORT', passport.id, passport.name);
+    const entity = await findEntity(req.user!.tenantId, 'PASSPORT', passport.id);
+    if (!entity) return res.json({ entity: null, trustState: 'UNKNOWN', nodes: { entity: null, claims: [], evidence: [], decisions: [] }, edges: { claimEvidence: [], claimDecision: [] } });
+    const entityId = String((entity as any).id);
     const [claims, evidence, decisions] = await Promise.all([
       db.execute(sql`SELECT * FROM msp_claims WHERE tenant_id = ${req.user!.tenantId} AND entity_id = ${entityId} ORDER BY observed_at DESC LIMIT 500`),
       db.execute(sql`SELECT e.* FROM msp_evidence e JOIN msp_claim_evidence ce ON ce.evidence_id=e.id JOIN msp_claims c ON c.id=ce.claim_id WHERE e.tenant_id=${req.user!.tenantId} AND c.tenant_id=${req.user!.tenantId} AND c.entity_id=${entityId} ORDER BY e.observed_at DESC LIMIT 500`),
@@ -195,8 +195,8 @@ export function createMspDigitalTrustRouter() {
     const versionId = `${policyId}-v1`;
     await db.execute(sql`INSERT INTO msp_policies (id, tenant_id, scope_type, scope_id, name) VALUES (${policyId}, ${req.user!.tenantId}, ${body.scopeType}, ${body.scopeId ?? null}, ${body.name})`);
     await db.execute(sql`INSERT INTO msp_policy_versions (id, policy_id, version, definition, created_by) VALUES (${versionId}, ${policyId}, 1, ${JSON.stringify(body.definition)}, ${req.user!.uid})`);
-    await audit(req.user!.tenantId, req.user!.uid, 'POLICY_CREATED', { policyId, versionId });
-    res.status(201).json({ id: policyId, version: 1, definition: body.definition, outcome: 'UNKNOWN', timestamp: new Date().toISOString() });
+    const auditHash = await audit(req.user!.tenantId, req.user!.uid, 'POLICY_CREATED', { policyId, versionId });
+    res.status(201).json({ id: policyId, version: 1, definition: body.definition, outcome: 'UNKNOWN', auditHash, timestamp: new Date().toISOString() });
   });
 
   router.post('/ai/passport', async (req: AuthenticatedRequest, res) => {
@@ -220,8 +220,8 @@ export function createMspDigitalTrustRouter() {
     });
     const id = `msp-ai-${crypto.randomUUID()}`;
     await db.execute(sql`INSERT INTO msp_ai_assets (id, tenant_id, entity_id, ai_type, provider, model_version, attributes, evidence_ids) VALUES (${id}, ${req.user!.tenantId}, ${entityId}, ${body.aiType}, ${body.provider ?? null}, ${body.modelVersion ?? null}, ${JSON.stringify(body.attributes)}, ${JSON.stringify(body.evidenceIds)})`);
-    await audit(req.user!.tenantId, req.user!.uid, 'AI_PASSPORT_CREATED', { id, entityId, decision });
-    res.status(201).json({ id, entity: entityId, decision: decision.decision, reasons: decision.reasons, evidenceReferences: body.evidenceIds, timestamp: new Date().toISOString() });
+    const auditHash = await audit(req.user!.tenantId, req.user!.uid, 'AI_PASSPORT_CREATED', { id, entityId, decision });
+    res.status(201).json({ id, entity: entityId, decision: decision.decision, reasons: decision.reasons, evidenceReferences: body.evidenceIds, auditHash, timestamp: new Date().toISOString() });
   });
 
   router.post('/roi/calculate', requireRole(['Owner', 'Admin', 'Technician']), async (req: AuthenticatedRequest, res) => {
@@ -231,16 +231,16 @@ export function createMspDigitalTrustRouter() {
     const result = calculateRoi(body);
     const id = `msp-roi-${crypto.randomUUID()}`;
     await db.execute(sql`INSERT INTO msp_roi_records (id, tenant_id, client_id, manual_minutes, assisted_minutes, assessments_per_month, labor_cost_per_hour, client_price, spr_cost, value_status, inputs_provenance) VALUES (${id}, ${req.user!.tenantId}, ${body.clientId}, ${body.manualMinutes}, ${body.assistedMinutes}, ${body.assessmentsPerMonth}, ${body.laborCostPerHour}, ${body.clientPrice}, ${body.sprCost}, ${result.status}, ${JSON.stringify(body.provenance ?? {})})`);
-    await audit(req.user!.tenantId, req.user!.uid, 'ROI_CALCULATED', { id, clientId: body.clientId, status: result.status });
-    res.status(201).json({ id, ...result, clientId: body.clientId });
+    const auditHash = await audit(req.user!.tenantId, req.user!.uid, 'ROI_CALCULATED', { id, clientId: body.clientId, status: result.status });
+    res.status(201).json({ id, ...result, clientId: body.clientId, auditHash });
   });
 
   router.post('/services', requireRole(['Owner', 'Admin']), async (req: AuthenticatedRequest, res) => {
     const body = parse(serviceSchema, req.body, res); if (!body) return;
     const id = `msp-service-${crypto.randomUUID()}`;
     await db.execute(sql`INSERT INTO msp_service_packages (id, tenant_id, name, description, included_checks, monitoring_frequency, report_schedule, deliverables, pricing_metadata, billing_metadata, white_label) VALUES (${id}, ${req.user!.tenantId}, ${body.name}, ${body.description}, ${JSON.stringify(body.includedChecks)}, ${body.monitoringFrequency ?? null}, ${body.reportSchedule ?? null}, ${JSON.stringify(body.deliverables)}, ${JSON.stringify(body.pricingMetadata)}, ${JSON.stringify(body.billingMetadata)}, ${JSON.stringify(body.whiteLabel)})`);
-    await audit(req.user!.tenantId, req.user!.uid, 'SERVICE_CREATED', { id });
-    res.status(201).json({ id, ...body, timestamp: new Date().toISOString() });
+    const auditHash = await audit(req.user!.tenantId, req.user!.uid, 'SERVICE_CREATED', { id });
+    res.status(201).json({ id, ...body, auditHash, timestamp: new Date().toISOString() });
   });
 
   router.post('/reports', requireRole(['Owner', 'Admin']), async (req: AuthenticatedRequest, res) => {
@@ -254,11 +254,11 @@ export function createMspDigitalTrustRouter() {
     const reportReference = `SPR-${crypto.randomUUID()}`;
     const snapshot = { ...body.snapshot, passportId: passport.id, passportVersion: passport.version, generatedAt: new Date().toISOString() };
     await db.execute(sql`INSERT INTO msp_reports (id, tenant_id, client_id, passport_id, report_reference, brand_config, snapshot) VALUES (${id}, ${req.user!.tenantId}, ${body.clientId}, ${passport.id}, ${reportReference}, ${JSON.stringify(body.brandConfig)}, ${JSON.stringify(snapshot)})`);
-    await audit(req.user!.tenantId, req.user!.uid, 'REPORT_CREATED', { id, reportReference, passportId: passport.id, clientId: body.clientId });
-    res.status(201).json({ id, reportReference, entity: passport.id, trustState: 'UNKNOWN', decision: 'UNKNOWN', evidenceReferences: [], timestamp: snapshot.generatedAt });
+    const auditHash = await audit(req.user!.tenantId, req.user!.uid, 'REPORT_CREATED', { id, reportReference, passportId: passport.id, clientId: body.clientId });
+    res.status(201).json({ id, reportReference, entity: passport.id, trustState: 'UNKNOWN', decision: 'UNKNOWN', evidenceReferences: [], auditHash, timestamp: snapshot.generatedAt });
   });
 
-  router.post('/validate-url', async (req: AuthenticatedRequest, res) => {
+  router.post('/validate-url', requireRole(['Owner', 'Admin', 'Technician']), async (req: AuthenticatedRequest, res) => {
     const parsed = z.object({ url: z.string().max(2048) }).strict().safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: 'VALIDATION_ERROR' });
     const result = validateExternalUrl(parsed.data.url);
