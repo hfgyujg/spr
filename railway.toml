@@ -3,40 +3,18 @@ builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "node railway-health-proxy.cjs"
+# Start the same hardened application entrypoint used by the production image.
+# The Dockerfile already switches to worker/bootstrap/migrate roles through
+# PROCESS_ROLE; Railway production defaults to the web server.
+startCommand = "node dist/server.cjs"
 healthcheckPath = "/health"
 healthcheckTimeout = 30
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3
 
-# Railway deploy healthchecks are HTTP-only. The runtime proxy serves a local
-# liveness response on /health while forwarding normal traffic to the app,
-# preserving the application's external HTTPS enforcement.
-#
-# Railway auto-injects PORT and, once you add the Postgres plugin, DATABASE_URL —
-# server.ts and src/config.ts already read both, no code changes needed.
-#
-# Everything else has to be set by hand in the Railway dashboard under this
-# service's Variables tab (Settings -> Variables, or `railway variables set`):
-#
-#   NODE_ENV=production
-#   APP_URL=https://<your-railway-domain>              (required in production, src/config.ts)
-#   APP_ALLOWED_ORIGINS=https://<your-vercel-domain>    (comma-separated if more than one)
-#   FIREBASE_SERVICE_ACCOUNT_KEY   (paste the full JSON key as one value)
-#   STRIPE_SECRET_KEY
-#   STRIPE_WEBHOOK_SECRET
-#   SENTRY_DSN                     (optional — logs a warning and runs without it if unset)
-#   REDIS_URL                      (Upstash connection string — required for the shared
-#                                    rate limiter; without it the limiter fails closed (503)
-#                                    per-request in production once traffic crosses instances)
-#   GOOGLE_GENAI_API_KEY            (for the /api/ai/* routes)
-#
-# Migrations run once via Railway CLI, not as part of the boot command:
-#   railway run node dist/migrate.cjs
-#
-# The worker is a SEPARATE Railway service pointed at Dockerfile.worker (see
-# RAILWAY_DEPLOY.md) — it needs the same DATABASE_URL / FIREBASE_SERVICE_ACCOUNT_KEY /
-# REDIS_URL variables copied into its own Variables tab; Railway does not share
-# variables across services by default.
-
-# Deployment trigger: keep Railway on the current main branch configuration.
+# Required production variables are documented in RAILWAY_DEPLOY.md.
+# APP_URL must be a valid HTTPS URL in production.
+# APP_ALLOWED_ORIGINS should contain only trusted frontend origins.
+# FIREBASE_SERVICE_ACCOUNT_KEY must remain a Railway secret.
+# REDIS_URL is required for the shared production rate limiter.
+# Migrations run separately via PROCESS_ROLE=migrate / Railway CLI.
