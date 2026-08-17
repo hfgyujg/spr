@@ -11,46 +11,28 @@ import { db } from '../db/index.ts';
 import { users } from '../db/schema.ts';
 import { eq } from 'drizzle-orm';
 
-// Extend Express Request type
 export interface AuthenticatedRequest extends Request {
-  user?: {
-    id: number;
-    uid: string;
-    email: string;
-    tenantId: string;
-    role: string;
-    emailVerified: boolean;
-  };
+  user?: { id: number; uid: string; email: string; tenantId: string; role: string; emailVerified: boolean };
 }
 
-// 1. Shared-store aware rate limiter to prevent API abuse
-let rateLimitWindowMs = 60 * 1000; // 1 minute
-let maxRequestsPerWindow = 100;    // max 100 requests per window
+let rateLimitWindowMs = 60 * 1000;
+let maxRequestsPerWindow = 100;
 const isTestMode = () => process.env.NODE_ENV !== 'production';
 
-// For tests: allow overriding rate limit configuration
 export function setRateLimiterConfig(opts: { windowMs?: number; maxRequests?: number }) {
-  if (!isTestMode()) {
-    throw new Error('setRateLimiterConfig is only available in test mode');
-  }
+  if (!isTestMode()) throw new Error('setRateLimiterConfig is only available in test mode');
   if (typeof opts.windowMs === 'number') rateLimitWindowMs = opts.windowMs;
   if (typeof opts.maxRequests === 'number') maxRequestsPerWindow = opts.maxRequests;
 }
 
-interface RateLimitRecord {
-  count: number;
-  resetAt: number;
-}
-
+interface RateLimitRecord { count: number; resetAt: number; }
 interface RateLimitStore {
   incr(key: string, windowMs: number, limit: number): Promise<RateLimitRecord>;
   get?(key: string): Promise<RateLimitRecord | undefined | null>;
 }
 
-// Simple in-memory store used for development and tests only.
 class InMemoryStore implements RateLimitStore {
   private map = new Map<string, { count: number; resetAt: number }>();
-
   async incr(key: string, windowMs: number) {
     const now = Date.now();
     const rec = this.map.get(key);
@@ -62,10 +44,7 @@ class InMemoryStore implements RateLimitStore {
     rec.count += 1;
     return rec;
   }
-
-  async get(key: string) {
-    return this.map.get(key);
-  }
+  async get(key: string) { return this.map.get(key); }
 }
 
 interface AtomicRateLimitClient {
@@ -73,12 +52,7 @@ interface AtomicRateLimitClient {
 }
 
 export class IORedisAtomicClient implements AtomicRateLimitClient {
-  constructor(
-    private readonly client: {
-      eval(script: string, numKeys: number, ...args: Array<string | number>): Promise<unknown>;
-    }
-  ) {}
-
+  constructor(private readonly client: { eval(script: string, numKeys: number, ...args: Array<string | number>): Promise<unknown> }) {}
   increment(script: string, key: string, windowMs: number, limit: number) {
     return this.client.eval(script, 1, key, String(windowMs), String(limit));
   }
@@ -86,9 +60,7 @@ export class IORedisAtomicClient implements AtomicRateLimitClient {
 
 export function createAtomicRateLimitClient(provider: 'ioredis', client: any): AtomicRateLimitClient {
   if (provider === 'ioredis') {
-    if (!client || typeof client.eval !== 'function') {
-      throw new Error('Invalid ioredis client; expected eval(script, numKeys, ...args)');
-    }
+    if (!client || typeof client.eval !== 'function') throw new Error('Invalid ioredis client; expected eval(script, numKeys, ...args)');
     return new IORedisAtomicClient(client);
   }
   throw new Error(`Unsupported rate limit provider: ${provider}`);
@@ -106,10 +78,7 @@ export class RedisStore implements RateLimitStore {
 
   constructor(
     private readonly atomicClient: AtomicRateLimitClient,
-    private readonly rawClient?: {
-      get?: (key: string) => Promise<unknown>;
-      pttl?: (key: string) => Promise<unknown>;
-    },
+    private readonly rawClient?: { get?: (key: string) => Promise<unknown>; pttl?: (key: string) => Promise<unknown> },
     private readonly failOpen: boolean = false
   ) {}
 
@@ -124,11 +93,7 @@ export class RedisStore implements RateLimitStore {
       if (!Number.isFinite(ttl) || ttl <= 0) throw new Error('Unexpected redis eval response');
       return { count, resetAt: now + ttl };
     } catch (err) {
-      if (this.failOpen) {
-        console.error('[RateLimiter] Redis store unavailable, fail-open explicitly enabled:', err instanceof Error ? err.message : err);
-        // Fail-open is retained only for non-production/test configuration.
-        return new InMemoryStore().incr(key, windowMs, limit);
-      }
+      if (this.failOpen) return new InMemoryStore().incr(key, windowMs, limit);
       throw err;
     }
   }
@@ -144,8 +109,7 @@ export class RedisStore implements RateLimitStore {
       if (typeof this.rawClient.pttl === 'function') ttl = Number(await this.rawClient.pttl(key));
       if (!Number.isFinite(ttl) || ttl < 0) ttl = 0;
       return { count, resetAt: Date.now() + ttl };
-    } catch (err) {
-      console.error('[RateLimiter] Redis store unavailable during get():', err instanceof Error ? err.message : err);
+    } catch {
       return undefined;
     }
   }
@@ -155,46 +119,29 @@ let sharedStore: RateLimitStore = new InMemoryStore();
 let hasIoredis = false;
 let IORedis: any = null;
 try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const req: any = require;
-  try { IORedis = req('ioredis'); hasIoredis = true; } catch (e) {}
-} catch (e) {}
+  try { IORedis = req('ioredis'); hasIoredis = true; } catch {}
+} catch {}
 
 export function createSharedRateLimitStoreFromEnv(): RateLimitStore {
   if (!config.isProduction) return new InMemoryStore();
-
   const redisUrl = config.redis.url;
-  if (!redisUrl) {
-    throw new Error('Production requires REDIS_URL for shared rate limiting; refusing to start without it.');
-  }
-  if (!hasIoredis || !IORedis) {
-    throw new Error('Production requires ioredis for shared rate limiting; refusing to start without it.');
-  }
+  if (!redisUrl) throw new Error('Production requires REDIS_URL for shared rate limiting; refusing to start without it.');
+  if (!hasIoredis || !IORedis) throw new Error('Production requires ioredis for shared rate limiting; refusing to start without it.');
 
   const client = new IORedis(redisUrl, {
     lazyConnect: true,
     enableReadyCheck: true,
-    reconnectOnError: (err: Error) => {
-      console.warn('[RateLimiter] Redis reconnect requested:', err?.message || err);
-      return true;
-    },
+    reconnectOnError: (err: Error) => { console.warn('[RateLimiter] Redis reconnect requested:', err?.message || err); return true; },
   });
-
-  client.on?.('error', (err: Error) => {
-    console.error('[RateLimiter] Redis client error; rate limiting remains fail-closed:', err?.message || err);
-  });
-  client.on?.('end', () => {
-    console.error('[RateLimiter] Redis connection ended; rate limiting remains fail-closed until Redis recovers.');
-  });
+  client.on?.('error', (err: Error) => console.error('[RateLimiter] Redis client error; rate limiting remains fail-closed:', err?.message || err));
+  client.on?.('end', () => console.error('[RateLimiter] Redis connection ended; rate limiting remains fail-closed until Redis recovers.'));
   client.on?.('connect', () => console.info('[RateLimiter] Redis client connecting'));
   client.on?.('ready', () => console.info('[RateLimiter] Redis client ready'));
+  void client.connect().catch((err: Error) => console.error('[RateLimiter] Redis startup connection failed; requests will fail closed until Redis recovers:', err?.message || err));
 
-  void client.connect().catch((err: Error) => {
-    console.error('[RateLimiter] Redis startup connection failed; requests will fail closed until Redis recovers:', err?.message || err);
-  });
-
-  // Production is always fail-closed. config.redis.failOpen cannot weaken this boundary.
-  return new RedisStore(createAtomicRateLimitClient('ioredis', client), client, false);
+  // Production is always fail-closed. The safe constructor default is false.
+  return new RedisStore(createAtomicRateLimitClient('ioredis', client), client);
 }
 
 if (config.isProduction) sharedStore = createSharedRateLimitStoreFromEnv();
@@ -208,12 +155,9 @@ export const rateLimiter = async (req: Request, res: Response, next: NextFunctio
   const ip = req.ip || req.socket.remoteAddress || 'unknown';
   const tenantId = (req as AuthenticatedRequest).user?.tenantId;
   const key = tenantId ? `rl:tenant:${tenantId}:ip:${ip}` : `rl:ip:${ip}`;
-
   try {
     const counter = await sharedStore.incr(key, rateLimitWindowMs, maxRequestsPerWindow);
-    if (!counter || !Number.isFinite(counter.count) || !Number.isFinite(counter.resetAt)) {
-      throw new Error('Malformed shared store response');
-    }
+    if (!counter || !Number.isFinite(counter.count) || !Number.isFinite(counter.resetAt)) throw new Error('Malformed shared store response');
     const remaining = Math.max(0, maxRequestsPerWindow - counter.count);
     res.setHeader('X-RateLimit-Limit', String(maxRequestsPerWindow));
     res.setHeader('X-RateLimit-Remaining', String(remaining));
@@ -226,22 +170,11 @@ export const rateLimiter = async (req: Request, res: Response, next: NextFunctio
   } catch (err) {
     const requestId = randomUUID();
     console.error('[RateLimiter] Shared store error:', requestId, err instanceof Error ? err.message : 'unknown');
-    return res.status(503).json({
-      error: {
-        code: 'RATE_LIMIT_STORE_UNAVAILABLE',
-        message: 'This operation is temporarily unavailable.',
-        requestId,
-      }
-    });
+    return res.status(503).json({ error: { code: 'RATE_LIMIT_STORE_UNAVAILABLE', message: 'This operation is temporarily unavailable.', requestId } });
   }
 };
 
-// 2. Multi-Tenant Sync & Authentication Middleware
-export const requireAuth = async (
-  req: AuthenticatedRequest,
-  res: Response,
-  next: NextFunction
-) => {
+export const requireAuth = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   let token = '';
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) token = authHeader.split('Bearer ')[1];
@@ -249,20 +182,14 @@ export const requireAuth = async (
 
   try {
     let decodedToken: any;
-    try {
-      decodedToken = await adminAuth.verifyIdToken(token, true);
-    } catch (err: any) {
-      console.warn('[Security Auth Middleware] Token verification failed:', err?.code || 'TOKEN_VERIFY_FAILED');
-      return res.status(401).json({ error: 'Unauthorized: Invalid or expired security token' });
-    }
+    try { decodedToken = await adminAuth.verifyIdToken(token, true); }
+    catch (err: any) { console.warn('[Security Auth Middleware] Token verification failed:', err?.code || 'TOKEN_VERIFY_FAILED'); return res.status(401).json({ error: 'Unauthorized: Invalid or expired security token' }); }
 
     const uid = decodedToken.uid;
     const email = decodedToken.email || `${uid}@user.local`;
     const emailVerified = !!decodedToken.email_verified;
     const isVerificationExemptPath = req.path === '/api/user/me' || req.path === '/api/auth/resend-verification' || req.path === '/api/auth/verify-status';
-    if (!emailVerified && !isVerificationExemptPath) {
-      return res.status(403).json({ error: 'Email verification required', code: 'EMAIL_NOT_VERIFIED', message: 'Your email address must be verified before accessing workspace resources.' });
-    }
+    if (!emailVerified && !isVerificationExemptPath) return res.status(403).json({ error: 'Email verification required', code: 'EMAIL_NOT_VERIFIED', message: 'Your email address must be verified before accessing workspace resources.' });
 
     const domain = email.split('@')[1] || 'generic';
     const isPublicDomain = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'aol.com', 'icloud.com'].includes(domain.toLowerCase());
@@ -279,7 +206,6 @@ export const requireAuth = async (
         const claimRes1 = await setUserCustomClaims(uid, { workspaceId: dbUser.tenantId, role: dbUser.role });
         if (!claimRes1.success) {
           await db.update(users).set({ uid: previousUid, onboarded: previousOnboarded }).where(eq(users.id, dbUser.id));
-          console.error('[Multi-Tenant Auth Denied] Custom claims push failed for invited user:', email);
           return res.status(403).json({ error: 'Forbidden: Security claim assignment failed' });
         }
       } else {
@@ -288,7 +214,6 @@ export const requireAuth = async (
         const claimRes2 = await setUserCustomClaims(uid, { workspaceId: dbUser.tenantId, role: dbUser.role });
         if (!claimRes2.success) {
           await db.delete(users).where(eq(users.id, dbUser.id));
-          console.error('[Multi-Tenant Auth Denied] Custom claims push failed for new user:', email);
           return res.status(403).json({ error: 'Forbidden: Security claim assignment failed' });
         }
       }
@@ -316,18 +241,13 @@ export const requireAuth = async (
   }
 };
 
-// 3. Role-Based Access Control (RBAC) Verification Middleware
 const ROLE_HIERARCHY = ['Viewer', 'Technician', 'Admin', 'Owner'] as const;
 type Role = typeof ROLE_HIERARCHY[number] | 'Auditor';
 
 function resolveEffectiveRoles(allowedRoles: string[]): Set<string> {
   const effective = new Set<string>(allowedRoles);
   for (const role of allowedRoles) {
-    if (role === 'Auditor') {
-      effective.add('Admin');
-      effective.add('Owner');
-      continue;
-    }
+    if (role === 'Auditor') { effective.add('Admin'); effective.add('Owner'); continue; }
     const rank = ROLE_HIERARCHY.indexOf(role as typeof ROLE_HIERARCHY[number]);
     if (rank === -1) continue;
     for (let i = rank + 1; i < ROLE_HIERARCHY.length; i++) effective.add(ROLE_HIERARCHY[i]);
@@ -341,9 +261,7 @@ export const requireRole = (allowedRoles: string[]) => {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     if (!req.user) return res.status(401).json({ error: 'Unauthorized: Authentication required' });
     const userRole = req.user.role;
-    if (!effectiveRoles.has(userRole)) {
-      return res.status(403).json({ error: 'Forbidden: Insufficient privileges', message: `Your role (${userRole}) does not have permission to access this resource. Allowed roles: ${allowedRoles.join(', ')}` });
-    }
+    if (!effectiveRoles.has(userRole)) return res.status(403).json({ error: 'Forbidden: Insufficient privileges', message: `Your role (${userRole}) does not have permission to access this resource. Allowed roles: ${allowedRoles.join(', ')}` });
     next();
   };
 };
