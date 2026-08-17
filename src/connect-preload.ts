@@ -6,12 +6,12 @@ import { createMspConsoleReadRouter } from './routes/msp-console-read.ts';
 import { createMspGraphWriteRouter } from './routes/msp-graph-write.ts';
 import { productionHardeningMiddleware } from './middleware/production-hardening.ts';
 
-const originalUse = express.application.use;
+const originalUse: any = express.application.use;
 let mounted = false;
 let hardened = false;
 
 express.application.use = function patchedUse(this: any, ...args: any[]) {
-  const result = originalUse.apply(this, args as any);
+  const result = originalUse.apply(this, args);
 
   if (!hardened) {
     hardened = true;
