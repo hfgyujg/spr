@@ -14,7 +14,7 @@ import { auth, googleAuthProvider } from '../lib/firebase';
 import SPRLogo from './SPRLogo';
 
 interface LoginViewProps {
-  onLoginSuccess: (user: { uid: string; email: string | null; displayName: string; token: string; emailVerified: boolean; onboarded: 0 }) => void;
+  onLoginSuccess: (user: { uid: string; email: string | null; displayName: string; emailVerified: boolean; onboarded: 0 }) => void;
 }
 
 const authMessage = (error: any, fallback: string) => {
@@ -46,18 +46,20 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
 
   const completeSignIn = async (user: User | null) => {
     if (useMockAuth) {
-      onLoginSuccess({ uid: 'dev-user-1', email: email || 'dev@example.com', displayName: email ? email.split('@')[0] : 'dev-user', token: 'mock-token-dev', emailVerified: true, onboarded: 0 });
+      onLoginSuccess({ uid: 'dev-user-1', email: email || 'dev@example.com', displayName: email ? email.split('@')[0] : 'dev-user', emailVerified: true, onboarded: 0 });
       return;
     }
     if (!user) return;
 
     await user.reload();
-    const token = await user.getIdToken(true);
+    // Force a fresh Firebase ID token so recently-added tenant/RBAC claims are available
+    // to the next API request. The raw token is intentionally not passed through UI state
+    // or persisted application storage; apiFetch reads it from auth.currentUser.
+    await user.getIdToken(true);
     onLoginSuccess({
       uid: user.uid,
       email: user.email,
       displayName: user.displayName || user.email?.split('@')[0] || 'SPR user',
-      token,
       emailVerified: user.emailVerified,
       onboarded: 0,
     });
