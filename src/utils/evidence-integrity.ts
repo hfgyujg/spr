@@ -2,7 +2,9 @@ import crypto from 'node:crypto';
 
 export const MAX_EVIDENCE_VERIFICATION_BYTES = 10 * 1024 * 1024;
 
-export function verifyEvidenceIntegrity(rawContent: string, storedHash: string) {
+export function verifyEvidenceIntegrity(rawContentOrRecord: string | { rawContent: string; hash: string }, storedHash?: string) {
+  const rawContent = typeof rawContentOrRecord === 'string' ? rawContentOrRecord : rawContentOrRecord.rawContent;
+  const suppliedHash = typeof rawContentOrRecord === 'string' ? storedHash : rawContentOrRecord.hash;
   const byteLength = Buffer.byteLength(rawContent, 'utf8');
   if (byteLength > MAX_EVIDENCE_VERIFICATION_BYTES) {
     return {
@@ -15,7 +17,7 @@ export function verifyEvidenceIntegrity(rawContent: string, storedHash: string) 
     };
   }
 
-  const normalizedHash = storedHash.trim().toLowerCase().replace(/^sha256:/, '');
+  const normalizedHash = String(suppliedHash ?? '').trim().toLowerCase().replace(/^sha256:/, '');
   if (!/^[a-f0-9]{64}$/.test(normalizedHash)) {
     return {
       outcome: 'failed' as const,
