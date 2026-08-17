@@ -17,7 +17,20 @@ const REPORT_TEMPLATES = [
   { id: 'rep-auditor', name: 'Compliance Evidence Report', type: 'Compliance Evidence', description: 'Maps available SBOM records, verification history, and reported regulatory controls.', frequency: 'Quarterly' },
   { id: 'rep-vuln', name: 'Vulnerability Findings Summary', type: 'Vulnerability Audit', description: 'Current CVE posture and remediation status for registered software passports and associated components.', frequency: 'Ad-hoc' }
 ];
-import { generateClientCompliancePDF, generateCoBrandedTrustReport } from '../utils/pdfGenerator';
+type PdfGeneratorModule = typeof import('../utils/pdfGenerator');
+const loadPdfGenerator = () => import('../utils/pdfGenerator');
+
+const generateClientCompliancePDF = async (client: Client) => {
+  const { generateClientCompliancePDF: generate } = await loadPdfGenerator();
+  return generate(client);
+};
+
+const generateCoBrandedTrustReport = async (
+  ...args: Parameters<PdfGeneratorModule['generateCoBrandedTrustReport']>
+) => {
+  const { generateCoBrandedTrustReport: generate } = await loadPdfGenerator();
+  return generate(...args);
+};
 import { apiFetch } from '../utils/apiClient';
 
 interface ReportsViewProps {
