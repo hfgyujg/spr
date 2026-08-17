@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 import './login-premium.css';
+import './styles/spr-flagship-ui.css';
 
 const root = document.getElementById('root');
 
