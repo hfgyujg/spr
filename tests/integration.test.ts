@@ -7,6 +7,7 @@
  * variables). Authenticated tests remain gated behind FIREBASE_TEST_TOKEN.
  */
 
+import 'dotenv/config';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { spawn, ChildProcess } from 'child_process';
 
@@ -60,18 +61,10 @@ describe.skipIf(!hasDb)('live server integration', () => {
     const body = await res.json();
 
     if (res.status === 200) {
-      expect(body).toMatchObject({
-        status: 'ok',
-        db: 'connected',
-        code: 'DB_CONNECTED'
-      });
+      expect(body).toMatchObject({ status: 'ok', db: 'connected', code: 'DB_CONNECTED' });
     } else {
       expect(res.status).toBe(503);
-      expect(body).toMatchObject({
-        status: 'unavailable',
-        db: 'unavailable',
-        code: 'DB_UNAVAILABLE'
-      });
+      expect(body).toMatchObject({ status: 'unavailable', db: 'unavailable', code: 'DB_UNAVAILABLE' });
     }
   });
 
@@ -83,9 +76,7 @@ describe.skipIf(!hasDb)('live server integration', () => {
   it('rejects a forged/unsigned JWT-shaped token (401, not decoded-and-trusted)', async () => {
     const forgedPayload = Buffer.from(JSON.stringify({ uid: 'attacker', email: 'attacker@evil.example', role: 'Owner' })).toString('base64url');
     const forgedToken = `eyJhbGciOiJub25lIn0.${forgedPayload}.`;
-    const res = await fetch(`${BASE_URL}/api/user/me`, {
-      headers: { Authorization: `Bearer ${forgedToken}` }
-    });
+    const res = await fetch(`${BASE_URL}/api/user/me`, { headers: { Authorization: `Bearer ${forgedToken}` } });
     expect(res.status).toBe(401);
   });
 
@@ -93,9 +84,7 @@ describe.skipIf(!hasDb)('live server integration', () => {
     const res = await fetch(`${BASE_URL}/api/user/me?token=not-a-bearer-token`);
     expect(res.status).toBe(401);
     const body = await res.json();
-    expect(body).toMatchObject({
-      error: 'Unauthorized: Missing or invalid authorization token'
-    });
+    expect(body).toMatchObject({ error: 'Unauthorized: Missing or invalid authorization token' });
   });
 
   it('sets baseline security headers via helmet', async () => {
@@ -116,10 +105,7 @@ describe.skipIf(!hasDb)('live server integration', () => {
     it('rejects a self-reported bare VERIFIED evidence claim with 400 once authenticated', async () => {
       const res = await fetch(`${BASE_URL}/api/passports/does-not-matter`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${process.env.FIREBASE_TEST_TOKEN}`
-        },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.FIREBASE_TEST_TOKEN}` },
         body: JSON.stringify({ evidence: [{ id: 'ev-1', name: 'x', type: 'Signature', status: 'VERIFIED', timestamp: new Date().toISOString() }] })
       });
       expect([400, 404]).toContain(res.status);
