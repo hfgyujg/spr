@@ -1,10 +1,9 @@
 {
-  "apiKey": "fake-api-key",
-  "authDomain": "localhost",
-  "projectId": "fake-project",
-  "storageBucket": "fake-bucket",
-  "messagingSenderId": "1234567890",
-  "appId": "1:1234567890:web:abcdef123456",
-  "measurementId": "G-ABCDEFG123",
-  "oAuthClientId": "1234567890-abcdefg.apps.googleusercontent.com"
+  "apiKey": "AIzaSyC1C1o3ekPT6QtZJwP1RmLwuA2-TIxRAtc",
+  "authDomain": "spr4-c2c65.firebaseapp.com",
+  "projectId": "spr4-c2c65",
+  "storageBucket": "spr4-c2c65.firebasestorage.app",
+  "messagingSenderId": "535878442566",
+  "appId": "1:535878442566:web:21c920f618a402aad63447",
+  "measurementId": "G-MG0KW2RCQ5"
 }
