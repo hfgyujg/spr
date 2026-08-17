@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { desc, eq } from 'drizzle-orm';
+import { desc, eq, sql } from 'drizzle-orm';
 import { db } from '../db/index.ts';
 import { clients, passports } from '../db/schema.ts';
 import { requireAuth, requireRole, rateLimiter, AuthenticatedRequest } from '../middleware/security.ts';
@@ -14,7 +14,7 @@ export function createMspConsoleReadRouter() {
   });
 
   router.get('/policies', async (req: AuthenticatedRequest, res) => {
-    const rows = await db.execute(require('drizzle-orm').sql`SELECT p.id, p.name, p.scope_type, p.scope_id, p.active_version, p.created_at, p.updated_at, v.definition FROM msp_policies p JOIN msp_policy_versions v ON v.policy_id=p.id AND v.version=p.active_version WHERE p.tenant_id=${req.user!.tenantId} ORDER BY p.updated_at DESC LIMIT 500`);
+    const rows = await db.execute(sql`SELECT p.id, p.name, p.scope_type, p.scope_id, p.active_version, p.created_at, p.updated_at, v.definition FROM msp_policies p JOIN msp_policy_versions v ON v.policy_id=p.id AND v.version=p.active_version WHERE p.tenant_id=${req.user!.tenantId} ORDER BY p.updated_at DESC LIMIT 500`);
     res.json({ entity: req.user!.tenantId, trustState: rows.rows.length ? 'REVIEW' : 'UNKNOWN', timestamp: new Date().toISOString(), policies: rows.rows });
   });
 
